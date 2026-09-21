@@ -34,11 +34,11 @@ export const FACE_OFFSET: Record<Face, number> = {
  */
 export const FACE_COLOR: Record<Face, string> = {
   U: '#ffffff', // white
-  R: '#b90000', // red
-  F: '#009b48', // green
-  D: '#ffd500', // yellow
-  L: '#ff5900', // orange
-  B: '#0045ad', // blue
+  R: '#ff0000', // red
+  F: '#00cc00', // green
+  D: '#ffff33', // yellow (brighter)
+  L: '#ffaa00', // orange (brighter)
+  B: '#0066ff', // blue
 }
 
 /** A cube state is a 54-length array of face letters (the sticker colors). */

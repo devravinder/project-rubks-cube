@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useCubeStore } from '../store/cubeStore'
-import { FACE_COLOR, FACE_OFFSET, type Face } from '../cube/facelet'
+import { FACE_COLOR, type Face } from '../cube/facelet'
 import { resolveGraphTurn } from './graphTurn'
 import {
   buildNodeLayout,
@@ -93,8 +93,7 @@ export function Graph2D() {
         className="text-border"
         stroke="currentColor"
         fill="none"
-        strokeWidth={0.3}
-        opacity={0.55}
+        strokeWidth={0.5}
       >
         {circles.map((c, i) => (
           <circle key={i} cx={c.cx} cy={c.cy} r={c.r} />
