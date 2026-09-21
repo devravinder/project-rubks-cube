@@ -24,7 +24,7 @@ const CENTER = VIEW / 2
 const MIDDLE_RADIUS = 22
 const CIRCLE_DISTANCE = MIDDLE_RADIUS / Math.sqrt(3) // ≈ 12.7
 const GROUP_ANGLES = [-90, 30, 150] // degrees
-const GROUP_RADII = [16, MIDDLE_RADIUS, 28]
+const GROUP_RADII = [18, MIDDLE_RADIUS, 26]
 
 const GROUP_FACES: Array<[Face, Face]> = [
   ['U', 'D'],
