@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useCubeStore } from '../store/cubeStore'
-import { FACE_COLOR, type Face } from '../cube/facelet'
+import { FACE_COLOR, FACE_OFFSET, type Face } from '../cube/facelet'
 import { resolveGraphTurn } from './graphTurn'
 import {
   buildNodeLayout,
@@ -48,9 +48,9 @@ export function Graph2D() {
 
   const size = LAYOUT_VIEWBOX.size
 
-  // Compute face cluster centers for debugging labels
-  const faceCenters = useMemo(() => {
-    const centers: Record<Face, { x: number; y: number } | null> = {
+  // Compute face label positions: place at the center (5th, index 4) sticker of each face
+  const faceLabelPositions = useMemo(() => {
+    const positions: Record<Face, { x: number; y: number } | null> = {
       U: null,
       D: null,
       R: null,
@@ -59,14 +59,12 @@ export function Graph2D() {
       B: null,
     }
     for (const face of ['U', 'D', 'R', 'L', 'F', 'B'] as const) {
-      const faceNodes = nodes.filter((n) => n.face === face)
-      if (faceNodes.length > 0) {
-        const cx = faceNodes.reduce((s, n) => s + n.x, 0) / faceNodes.length
-        const cy = faceNodes.reduce((s, n) => s + n.y, 0) / faceNodes.length
-        centers[face] = { x: cx, y: cy }
+      const faceNode = nodes.find((n) => n.face === face && (n.faceletIndex - FACE_OFFSET[face]) === 4)
+      if (faceNode) {
+        positions[face] = { x: faceNode.x, y: faceNode.y }
       }
     }
-    return centers
+    return positions
   }, [nodes])
 
   return (
@@ -109,12 +107,12 @@ export function Graph2D() {
         ))}
       </g>
 
-      {/* Face labels at cluster centers (for debugging). */}
+      {/* Face labels at the center (5th) sticker of each face. */}
       <g className="text-foreground" fontSize="4" fontWeight="bold" textAnchor="middle">
-        {(Object.entries(faceCenters) as Array<[Face, { x: number; y: number } | null]>).map(
-          ([face, center]) =>
-            center && (
-              <text key={`label-${face}`} x={center.x} y={center.y} dy="0.35em">
+        {(Object.entries(faceLabelPositions) as Array<[Face, { x: number; y: number } | null]>).map(
+          ([face, pos]) =>
+            pos && (
+              <text key={`label-${face}`} x={pos.x} y={pos.y} dy="0.35em">
                 {face}
               </text>
             ),
