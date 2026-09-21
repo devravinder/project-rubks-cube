@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useCubeStore } from '../store/cubeStore'
 import { FACE_COLOR, type Face } from '../cube/facelet'
-import { resolveGraphTurn } from './graphTurn'
+import type { MoveName } from '../cube/moves'
 import {
   buildNodeLayout,
   guideCircles,
@@ -14,8 +14,6 @@ import {
   type NodePos,
   type Ring,
 } from './layout'
-
-const DRAG_THRESHOLD = 6
 
 type XY = { x: number; y: number }
 
@@ -125,22 +123,107 @@ export function Graph2D() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history, ringByKey, nodes])
 
-  const drag = useRef<{ node: NodePos; startX: number; startY: number } | null>(null)
+  // For each ring, the center (pivot) and the set of slot facelet-ids on it.
+  const ringInfo = useMemo(() => {
+    const info: Record<string, { center: [number, number]; ids: Set<number> }> = {}
+    for (const key of RING_KEYS) {
+      const ring = ringByKey[key]
+      if (!ring) continue
+      info[key] = {
+        center: ring.center,
+        ids: new Set(ring.slots.map((s) => s.faceletIndex)),
+      }
+    }
+    return info
+  }, [ringByKey])
+
+  // Reverse map: given the ring that was dragged and the visual sweep direction
+  // (cw = clockwise), return the move to apply.
+  //
+  // Inner rings are owned by U/R/F: cw => base move, ccw => prime.
+  // Outer rings are driven by the OPPOSITE outer face (D/L/B) with INVERTED
+  // direction (matches the display model): on an outer ring, cw => prime of the
+  // driver, ccw => base of the driver.
+  const RING_OWNER: Record<string, { inner: Face; outer: Face }> = {
+    'U:inner': { inner: 'U', outer: 'D' },
+    'U:outer': { inner: 'U', outer: 'D' },
+    'R:inner': { inner: 'R', outer: 'L' },
+    'R:outer': { inner: 'R', outer: 'L' },
+    'F:inner': { inner: 'F', outer: 'B' },
+    'F:outer': { inner: 'F', outer: 'B' },
+  }
+
+  const moveForDrag = (key: string, cw: boolean): MoveName | null => {
+    const owner = RING_OWNER[key]
+    if (!owner) return null
+    if (key.endsWith(':inner')) {
+      // Owned by inner face: cw => base, ccw => prime.
+      return (cw ? owner.inner : `${owner.inner}'`) as MoveName
+    }
+    // Outer ring: driven by the outer face with inverted direction.
+    // cw => prime of driver, ccw => base of driver.
+    return (cw ? `${owner.outer}'` : owner.outer) as MoveName
+  }
+
+  // Minimum sweep (degrees) around a ring center to commit a move.
+  const COMMIT_ANGLE_DEG = 20
+
+  const drag = useRef<{
+    node: NodePos
+    startX: number
+    startY: number
+    committed: boolean
+  } | null>(null)
+
+  // Convert a client point to SVG viewBox coordinates.
+  const toSvg = (svg: SVGSVGElement, clientX: number, clientY: number): XY => {
+    const rect = svg.getBoundingClientRect()
+    return {
+      x: ((clientX - rect.left) / rect.width) * LAYOUT_VIEWBOX.size,
+      y: ((clientY - rect.top) / rect.height) * LAYOUT_VIEWBOX.size,
+    }
+  }
 
   const onPointerDown = (node: NodePos) => (e: React.PointerEvent) => {
-    drag.current = { node, startX: e.clientX, startY: e.clientY }
+    drag.current = { node, startX: e.clientX, startY: e.clientY, committed: false }
     ;(e.target as Element).setPointerCapture?.(e.pointerId)
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current
-    if (!d) return
-    const dx = e.clientX - d.startX
-    const dy = e.clientY - d.startY
-    if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
-    const move = resolveGraphTurn(d.node, dx, dy)
-    drag.current = null
-    if (move) applyMove(move)
+    if (!d || d.committed) return
+
+    const svg = e.currentTarget as SVGSVGElement
+    const start = toSvg(svg, d.startX, d.startY)
+    const cur = toSvg(svg, e.clientX, e.clientY)
+
+    // Candidate rings that contain the grabbed sticker.
+    const candidates = RING_KEYS.filter(
+      (k) => ringInfo[k]?.ids.has(d.node.faceletIndex),
+    )
+    if (candidates.length === 0) return
+
+    // Choose the ring the user is tracing: the one whose center the grabbed
+    // sticker orbits and where the drag produces the largest clean sweep.
+    let best: { key: string; sweep: number } | null = null
+    for (const key of candidates) {
+      const [cx, cy] = ringInfo[key].center
+      const a0 = Math.atan2(start.y - cy, start.x - cx)
+      const a1 = Math.atan2(cur.y - cy, cur.x - cx)
+      let sweep = ((a1 - a0) * 180) / Math.PI
+      while (sweep > 180) sweep -= 360
+      while (sweep <= -180) sweep += 360
+      if (!best || Math.abs(sweep) > Math.abs(best.sweep)) best = { key, sweep }
+    }
+    if (!best) return
+
+    if (Math.abs(best.sweep) >= COMMIT_ANGLE_DEG) {
+      const cw = best.sweep > 0 // SVG y-down: positive sweep = clockwise
+      const move = moveForDrag(best.key, cw)
+      d.committed = true
+      drag.current = null
+      if (move) applyMove(move)
+    }
   }
 
   const onPointerUp = () => {
