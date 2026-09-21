@@ -47,10 +47,10 @@ const faceToCubie: Record<Face, (col: number, row: number) => Vec3> = {
   U: (col, row) => [col - 1, 1, row - 1],
   // Looking up the -y axis. Top row is front (+z); left is -x.
   D: (col, row) => [col - 1, -1, 1 - row],
-  // Looking along -x (from +x). Top row is up (+y); left is back (-z).
-  R: (col, row) => [1, 1 - row, col - 1],
-  // Looking along +x (from -x). Top row is up; left is front (+z).
-  L: (col, row) => [-1, 1 - row, 1 - col],
+  // Looking along -x (from +x). Top row is up (+y); left (col 0) is front (+z).
+  R: (col, row) => [1, 1 - row, 1 - col],
+  // Looking along +x (from -x). Top row is up; left (col 0) is back (-z).
+  L: (col, row) => [-1, 1 - row, col - 1],
   // Looking along -z (from +z). Top row is up; left is left (-x).
   F: (col, row) => [col - 1, 1 - row, 1],
   // Looking along +z (from -z). Top row is up; left is right (+x).
