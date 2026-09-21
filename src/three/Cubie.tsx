@@ -1,32 +1,32 @@
 import { useMemo } from 'react'
 import { RoundedBox } from '@react-three/drei'
+import type { ThreeEvent } from '@react-three/fiber'
 import { FACE_COLOR, type Face } from '../cube/facelet'
 import type { StickerDef, Vec3 } from './geometry'
 
-const CUBIE_SIZE = 0.94 // slightly < 1 to leave visible gaps between cubies
+const CUBIE_SIZE = 0.94
 const STICKER_SIZE = 0.82
-const STICKER_OFFSET = 0.481 // just outside the cubie surface (half of 0.94 + epsilon)
+const STICKER_OFFSET = 0.481
 
 type CubieProps = {
   position: Vec3
-  /** Stickers on this cubie, with their current colors resolved from state. */
   stickers: Array<{ def: StickerDef; color: Face }>
+  onStickerPointerDown?: (e: ThreeEvent<PointerEvent>) => void
 }
 
-/** A quaternion-free rotation for a sticker plane to face along its normal. */
 function stickerRotation(normal: Vec3): [number, number, number] {
   const [x, y, z] = normal
-  if (y === 1) return [-Math.PI / 2, 0, 0] // up
-  if (y === -1) return [Math.PI / 2, 0, 0] // down
-  if (x === 1) return [0, Math.PI / 2, 0] // right
-  if (x === -1) return [0, -Math.PI / 2, 0] // left
-  if (z === 1) return [0, 0, 0] // front
-  if (z === -1) return [0, Math.PI, 0] // back
+  if (y === 1) return [-Math.PI / 2, 0, 0]
+  if (y === -1) return [Math.PI / 2, 0, 0]
+  if (x === 1) return [0, Math.PI / 2, 0]
+  if (x === -1) return [0, -Math.PI / 2, 0]
+  if (z === 1) return [0, 0, 0]
+  if (z === -1) return [0, Math.PI, 0]
   return [0, 0, 0]
 }
 
-/** One small cube (cubie) with colored sticker tiles on its outward faces. */
-export function Cubie({ position, stickers }: CubieProps) {
+/** One cubie with colored sticker tiles. Stickers carry userData for picking. */
+export function Cubie({ position, stickers, onStickerPointerDown }: CubieProps) {
   const stickerMeshes = useMemo(
     () =>
       stickers.map(({ def, color }) => {
@@ -41,22 +41,19 @@ export function Cubie({ position, stickers }: CubieProps) {
             key={def.faceletIndex}
             position={pos}
             rotation={stickerRotation(def.normal)}
+            userData={{ cubie: position, normal: def.normal }}
+            onPointerDown={onStickerPointerDown}
           >
             <planeGeometry args={[STICKER_SIZE, STICKER_SIZE]} />
-            <meshStandardMaterial
-              color={FACE_COLOR[color]}
-              roughness={0.35}
-              metalness={0}
-            />
+            <meshStandardMaterial color={FACE_COLOR[color]} roughness={0.35} metalness={0} />
           </mesh>
         )
       }),
-    [stickers],
+    [stickers, position, onStickerPointerDown],
   )
 
   return (
     <group position={position}>
-      {/* Cubie body (plastic). */}
       <RoundedBox args={[CUBIE_SIZE, CUBIE_SIZE, CUBIE_SIZE]} radius={0.08} smoothness={4}>
         <meshStandardMaterial color="#141414" roughness={0.6} metalness={0} />
       </RoundedBox>
