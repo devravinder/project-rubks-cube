@@ -1,60 +1,121 @@
-import { FACE_OFFSET, FACES, type Face } from '../cube/facelet'
+import { FACE_OFFSET, type Face } from '../cube/facelet'
 
 /**
- * Fixed 2D layout for the graph/flower view.
+ * Fixed 2D layout for the graph/flower view, matching the reference mandala:
  *
- * The view mirrors the cube state: one node per sticker (54 total), positioned
- * in a symmetric arrangement. Each face is drawn as a 3x3 grid of dots; the six
- * faces are placed around a center like petals, echoing the mandala look:
+ *  - Three large circle-families are arranged at 120 deg around the center,
+ *    overlapping in a trefoil. Each family has several concentric rings; drawn
+ *    together they form the dense overlapping-arcs look.
+ *  - 54 sticker-nodes are laid out with 3-fold rotational symmetry: a small
+ *    central cluster, plus three "arms" (one per cube axis) radiating outward,
+ *    each arm holding the 18 stickers of one axis (two opposite faces).
  *
- *            U
- *         L  F  R  B     (F center, L/R/B around, U above, D below)
- *            D
- *
- * Positions are in an abstract viewBox coordinate space; the SVG scales to fit.
+ * Coordinates are in an abstract square viewBox (0..VIEW). The SVG scales to fit.
  */
 
 export type NodePos = { faceletIndex: number; x: number; y: number; face: Face }
 
-const VIEW = 100 // viewBox is 0..VIEW in both axes (with margin)
+const VIEW = 100
 const CENTER = VIEW / 2
-const CELL = 4.4 // spacing between dots within a face
-const FACE_SPAN = CELL * 2 // width/height of a 3x3 face block (centers of corner dots)
 
-/** Center position of each face block, arranged as an unfolded cross. */
-const FACE_CENTER: Record<Face, { cx: number; cy: number }> = {
-  U: { cx: CENTER, cy: CENTER - FACE_SPAN * 1.9 },
-  D: { cx: CENTER, cy: CENTER + FACE_SPAN * 1.9 },
-  L: { cx: CENTER - FACE_SPAN * 1.9, cy: CENTER },
-  F: { cx: CENTER, cy: CENTER },
-  R: { cx: CENTER + FACE_SPAN * 1.9, cy: CENTER },
-  B: { cx: CENTER + FACE_SPAN * 3.8, cy: CENTER },
+/**
+ * The three arms point up-left, up-right, and down (120 deg apart), matching the
+ * reference. Angle 0 = pointing up; we rotate by these base angles.
+ */
+const ARM_ANGLES = [-90, 30, 150] // degrees; up, lower-right, lower-left arms fan symmetrically
+
+/** Which axis (pair of opposite faces) belongs to each arm. */
+const ARM_FACES: Array<[Face, Face]> = [
+  ['U', 'D'],
+  ['R', 'L'],
+  ['F', 'B'],
+]
+
+/**
+ * Local node offsets within one arm, in a coordinate frame where the arm points
+ * "up" (-y). 18 nodes per arm arranged as fanning rows that widen outward,
+ * echoing the diamond clusters in the reference. Values are tuned to sit on the
+ * concentric arcs.
+ *
+ * Format: [alongArm (radius from center), acrossArm (lateral)].
+ */
+const ARM_NODE_LOCAL: Array<[number, number]> = [
+  // inner (near center) - 2 nodes
+  [12, -3.5], [12, 3.5],
+  // ring 2 - 3 nodes
+  [20, -7], [21, 0], [20, 7],
+  // ring 3 - 4 nodes
+  [28, -10.5], [29, -3.5], [29, 3.5], [28, 10.5],
+  // ring 4 - 4 nodes
+  [37, -12], [38, -4], [38, 4], [37, 12],
+  // outer ring - 5 nodes
+  [46, -13], [46.5, -6.5], [47, 0], [46.5, 6.5], [46, 13],
+]
+
+function rot(x: number, y: number, deg: number): [number, number] {
+  const r = (deg * Math.PI) / 180
+  const c = Math.cos(r)
+  const s = Math.sin(r)
+  return [x * c - y * s, x * s + y * c]
 }
 
-/** Build fixed positions for all 54 nodes. */
+/**
+ * Build fixed positions for all 54 nodes.
+ *
+ * Per arm: the first 9 facelets (one face of the axis pair) fill the "left half"
+ * of the arm's rows and the other 9 fill the "right half", so a solved cube
+ * shows two color-clusters per arm (as in the reference).
+ */
 export function buildNodeLayout(): NodePos[] {
   const nodes: NodePos[] = []
-  for (const face of FACES) {
-    const { cx, cy } = FACE_CENTER[face]
-    const offset = FACE_OFFSET[face]
-    for (let i = 0; i < 9; i++) {
-      const col = i % 3
-      const row = Math.floor(i / 3)
+
+  ARM_FACES.forEach(([faceA, faceB], armIdx) => {
+    const angle = ARM_ANGLES[armIdx]
+    // 18 slots for this arm; map facelets: faceA -> slots 0..8, faceB -> 9..17.
+    const faceForSlot = (slot: number): { face: Face; local: number } =>
+      slot < 9
+        ? { face: faceA, local: slot }
+        : { face: faceB, local: slot - 9 }
+
+    for (let slot = 0; slot < 18; slot++) {
+      // Reuse the 18 local positions but mirror the second face across the arm
+      // axis so the two faces sit on opposite sides.
+      const base = ARM_NODE_LOCAL[slot % ARM_NODE_LOCAL.length]
+      const along = base[0]
+      const across = slot < 9 ? base[1] : -base[1]
+      const [dx, dy] = rot(across, -along, angle + 90) // +90: arm "up" = -y
+      const { face, local } = faceForSlot(slot)
       nodes.push({
-        faceletIndex: offset + i,
+        faceletIndex: FACE_OFFSET[face] + local,
         face,
-        x: cx + (col - 1) * CELL,
-        y: cy + (row - 1) * CELL,
+        x: CENTER + dx,
+        y: CENTER + dy,
       })
     }
-  }
+  })
+
   return nodes
 }
 
-/** Concentric guide circles (the mandala rings), radii in viewBox units. */
-export function guideCircles(): number[] {
-  return [10, 16, 22, 28, 34, 40].map((r) => r)
+/**
+ * The overlapping guide circles: three families (one per arm) of concentric
+ * rings, each family centered slightly out along its arm — producing the
+ * trefoil of intersecting circles seen in the reference.
+ */
+export type GuideCircle = { cx: number; cy: number; r: number }
+
+export function guideCircles(): GuideCircle[] {
+  const circles: GuideCircle[] = []
+  const radii = [14, 20, 26, 32]
+  ARM_ANGLES.forEach((angle) => {
+    // Center of this family sits partway out along the arm.
+    const [cx, cy] = rot(0, -18, angle + 90)
+    for (const r of radii) {
+      circles.push({ cx: CENTER + cx, cy: CENTER + cy, r })
+    }
+  })
+  return circles
 }
 
-export const LAYOUT_VIEWBOX = { width: VIEW + 20, height: VIEW, cx: CENTER }
-export const NODE_RADIUS = 1.7
+export const LAYOUT_VIEWBOX = { size: VIEW }
+export const NODE_RADIUS = 2.1

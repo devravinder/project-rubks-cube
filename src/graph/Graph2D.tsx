@@ -10,18 +10,19 @@ import {
   type NodePos,
 } from './layout'
 
-const DRAG_THRESHOLD = 6 // viewBox-independent px threshold on the raw pointer
+const DRAG_THRESHOLD = 6
 
 /**
- * The 2D graph/flower view. Renders one dot per sticker, colored from the same
- * shared state as the 3D cube, so both views stay in sync. Dragging a node
- * triggers the corresponding face turn (which updates the shared store).
+ * The 2D graph/mandala view. One dot per sticker, colored from the same shared
+ * state as the 3D cube, arranged in the 3-fold trefoil of the reference. The
+ * overlapping concentric circles are the cycle "tracks". Dragging a node turns
+ * the corresponding face (updating the shared store, so both views stay synced).
  */
 export function Graph2D() {
   const state = useCubeStore((s) => s.state)
   const applyMove = useCubeStore((s) => s.applyMove)
   const nodes = useMemo(() => buildNodeLayout(), [])
-  const rings = useMemo(() => guideCircles(), [])
+  const circles = useMemo(() => guideCircles(), [])
 
   const drag = useRef<{ node: NodePos; startX: number; startY: number } | null>(null)
 
@@ -45,9 +46,11 @@ export function Graph2D() {
     drag.current = null
   }
 
+  const size = LAYOUT_VIEWBOX.size
+
   return (
     <svg
-      viewBox={`0 0 ${LAYOUT_VIEWBOX.width} ${LAYOUT_VIEWBOX.height}`}
+      viewBox={`0 0 ${size} ${size}`}
       className="h-full w-full"
       preserveAspectRatio="xMidYMid meet"
       onPointerMove={onPointerMove}
@@ -55,10 +58,16 @@ export function Graph2D() {
       role="img"
       aria-label="2D graph view of the cube state"
     >
-      {/* Concentric guide rings (mandala). */}
-      <g className="text-border" stroke="currentColor" fill="none" strokeWidth={0.25} opacity={0.5}>
-        {rings.map((r) => (
-          <circle key={r} cx={LAYOUT_VIEWBOX.cx} cy={LAYOUT_VIEWBOX.height / 2} r={r} />
+      {/* Overlapping concentric guide circles (the cycle tracks). */}
+      <g
+        className="text-border"
+        stroke="currentColor"
+        fill="none"
+        strokeWidth={0.3}
+        opacity={0.55}
+      >
+        {circles.map((c, i) => (
+          <circle key={i} cx={c.cx} cy={c.cy} r={c.r} />
         ))}
       </g>
 
@@ -71,8 +80,8 @@ export function Graph2D() {
             cy={node.y}
             r={NODE_RADIUS}
             fill={FACE_COLOR[state[node.faceletIndex] as Face]}
-            stroke="rgba(0,0,0,0.35)"
-            strokeWidth={0.2}
+            stroke="rgba(0,0,0,0.4)"
+            strokeWidth={0.25}
             className="cursor-grab touch-none"
             onPointerDown={onPointerDown(node)}
           />
