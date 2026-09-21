@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei'
 import { Vector3 } from 'three'
 import { Cube3D, type Cube3DHandle } from './Cube3D'
 import { resolveTurn } from './turnLogic'
+import { AxisGizmo } from './AxisGizmo'
 import type { Vec3 } from './geometry'
 
 const DRAG_THRESHOLD = 8
@@ -27,9 +28,11 @@ type PointerState = {
 function Interaction({
   cubeRef,
   orbitRef,
+  onReady,
 }: {
   cubeRef: React.RefObject<Cube3DHandle | null>
   orbitRef: React.RefObject<OrbitLike | null>
+  onReady?: (resetCamera: () => void) => void
 }) {
   const { camera, gl } = useThree()
   const pointer = useRef<PointerState | null>(null)
@@ -49,6 +52,21 @@ function Interaction({
       }
     }
   }, [camera, orbitRef])
+
+  // Expose a resetCamera function to restore the default view
+  useEffect(() => {
+    if (!onReady) return
+    const resetCamera = () => {
+      const controls = orbitRef.current as any
+      if (controls?.object) {
+        controls.object.position.set(5, 5, 6)
+        controls.target.set(0, 0, 0)
+        controls.object.lookAt(0, 0, 0)
+        controls.update?.()
+      }
+    }
+    onReady(resetCamera)
+  }, [onReady, orbitRef])
 
   const screenDeltaToWorld = (dx: number, dy: number, normal: Vec3): Vec3 => {
     const right = new Vector3()
@@ -115,7 +133,11 @@ function Interaction({
 }
 
 /** The Three.js scene: camera, lighting, the interactive cube, orbit controls. */
-export function CubeScene() {
+export function CubeScene({
+  onReady,
+}: {
+  onReady?: (resetCamera: () => void) => void
+}) {
   const cubeRef = useRef<Cube3DHandle | null>(null)
   const orbitRef = useRef<OrbitLike | null>(null)
 
@@ -130,7 +152,7 @@ export function CubeScene() {
       <directionalLight position={[5, 8, 6]} intensity={1.1} />
       <directionalLight position={[-6, -3, -4]} intensity={0.35} />
 
-      <Interaction cubeRef={cubeRef} orbitRef={orbitRef} />
+      <Interaction cubeRef={cubeRef} orbitRef={orbitRef} onReady={onReady} />
 
       <OrbitControls
         ref={orbitRef as never}
@@ -142,7 +164,8 @@ export function CubeScene() {
         autoRotate={false}
         autoRotateSpeed={0}
       />
-      />
+
+      <AxisGizmo />
     </Canvas>
   )
 }
