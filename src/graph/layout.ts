@@ -15,9 +15,17 @@ export type NodePos = { faceletIndex: number; x: number; y: number; face: Face }
 const VIEW = 100
 const CENTER = VIEW / 2
 
-const CIRCLE_DISTANCE = 20
+/**
+ * KEY CONSTRAINT: Through each group's center, another group's MIDDLE circle passes.
+ * This means: distance between adjacent group centers = MIDDLE_RADIUS.
+ * For a triangle with 120° angles and side length = MIDDLE_RADIUS:
+ *   circumradius = MIDDLE_RADIUS / sqrt(3)
+ * So we place group centers at this distance from CENTER.
+ */
+const MIDDLE_RADIUS = 22
+const CIRCLE_DISTANCE = MIDDLE_RADIUS / Math.sqrt(3) // ≈ 12.7
 const GROUP_ANGLES = [-90, 30, 150]
-const GROUP_RADII = [16, 22, 28]
+const GROUP_RADII = [16, MIDDLE_RADIUS, 28]
 
 const GROUP_FACES: Array<[Face, Face]> = [
   ['U', 'D'],
