@@ -36,8 +36,8 @@ export const FACE_COLOR: Record<Face, string> = {
   U: '#ffffff', // white
   R: '#ff0000', // red
   F: '#00cc00', // green
-  D: '#ffff33', // yellow (brighter)
-  L: '#ffaa00', // orange (brighter)
+  D: '#ffe000', // yellow
+  L: '#ff7000', // orange (deeper, clearly distinct from yellow)
   B: '#0066ff', // blue
 }
 
