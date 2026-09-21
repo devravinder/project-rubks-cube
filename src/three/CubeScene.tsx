@@ -34,6 +34,22 @@ function Interaction({
   const { camera, gl } = useThree()
   const pointer = useRef<PointerState | null>(null)
 
+  // Set initial camera angles so U is up, F is forward, R is visible
+  useEffect(() => {
+    if (orbitRef.current) {
+      // OrbitControls uses spherical coordinates
+      // For the standard view: U up, F forward, R right
+      // We set the rotation so the camera orbits to this angle
+      const controls = orbitRef.current as any
+      if (controls.object) {
+        controls.object.position.copy(camera.position)
+        controls.target.set(0, 0, 0)
+        controls.object.lookAt(0, 0, 0)
+        controls.update?.()
+      }
+    }
+  }, [camera, orbitRef])
+
   const screenDeltaToWorld = (dx: number, dy: number, normal: Vec3): Vec3 => {
     const right = new Vector3()
     const up = new Vector3()
@@ -105,7 +121,7 @@ export function CubeScene() {
 
   return (
     <Canvas
-      camera={{ position: [4, 4, 5.5], fov: 40 }}
+      camera={{ position: [5, 5, 6], fov: 40 }}
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: true }}
       style={{ width: '100%', height: '100%' }}
@@ -123,6 +139,9 @@ export function CubeScene() {
         minDistance={4}
         maxDistance={12}
         rotateSpeed={0.9}
+        autoRotate={false}
+        autoRotateSpeed={0}
+      />
       />
     </Canvas>
   )

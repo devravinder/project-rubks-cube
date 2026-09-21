@@ -109,22 +109,22 @@ export const Cube3D = forwardRef<Cube3DHandle, Cube3DProps>(function Cube3D(
       </group>
 
       {/* Face labels (temporary debug). */}
-      <Text position={[0, 0, 3]} fontSize={0.8} color="black" anchorX="center" anchorY="middle">
+      <Text position={[0, 0, 1.5]} fontSize={0.8} color="black" anchorX="center" anchorY="middle">
         F
       </Text>
-      <Text position={[0, 0, -3]} fontSize={0.8} color="black" anchorX="center" anchorY="middle">
+      <Text position={[0, 0, -1.5]} fontSize={0.8} color="black" anchorX="center" anchorY="middle">
         B
       </Text>
-      <Text position={[3, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI / 2, 0]}>
+      <Text position={[1.5, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI / 2, 0]}>
         R
       </Text>
-      <Text position={[-3, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI / 2, 0]}>
+      <Text position={[-1.5, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI / 2, 0]}>
         L
       </Text>
-      <Text position={[0, 3, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, 0]}>
+      <Text position={[0, 1.5, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, 0]}>
         U
       </Text>
-      <Text position={[0, -3, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, 0]}>
+      <Text position={[0, -1.5, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, 0]}>
         D
       </Text>
     </group>
