@@ -98,20 +98,21 @@ function groupCenter(group: number): [number, number] {
  *
  * Strategy (matching frame_00401.png):
  *  - Compute intersections ONLY between adjacent group pairs: (0,1), (1,2), (2,0).
- *  - Each pair generates 9 intersection points (3 radii from group A × 3 from group B).
- *  - Total: 3 pairs × 9 points = 27 unique intersection locations.
- *  - Assign stickers by alternating faces at different radius levels:
- *    - Inner radius intersections (r1[0] vs r2[0]): faces at index 0 of their pair.
- *    - Middle radius: faces at index 1.
- *    - Outer radius: faces at index 2 or wrap.
- *  - This spreads 54 stickers across the 27 points (2 stickers per point, one per face of the pair).
+ *  - EACH pair generates 2 GROUPS of 9 intersection points (one on each side of the overlap).
+ *  - Each circle pair (r1_from_g1, r2_from_g2) intersects at 2 points: one on each side.
+ *  - Total: 3 pairs × 2 groups × 9 = 54 stickers exactly.
+ *
+ * The two intersection points from each circle pair are sorted and assigned:
+ *  - radiusIdx 0..8 → first intersection (one side)
+ *  - radiusIdx 0..8 → second intersection (other side, flipped)
  */
 export function buildNodeLayout(): NodePos[] {
   interface IntersectionData {
     x: number
     y: number
-    pair: number // which pair (0=g0-g1, 1=g1-g2, 2=g2-g0)
-    radiusIdx: number // which radius combination (0..8, representing r1_idx * 3 + r2_idx)
+    pairIdx: number // which pair (0, 1, or 2)
+    groupIdx: number // which group within the pair (0 or 1, for the two sides)
+    radiusIdx: number // which radius combination (0..8)
   }
 
   const intersections: IntersectionData[] = []
@@ -136,43 +137,49 @@ export function buildNodeLayout(): NodePos[] {
         const r2 = GROUP_RADII[r2Idx]
         const pts = circleIntersections(c1x, c1y, r1, c2x, c2y, r2)
 
-        // Take the first intersection point (or closest to the midpoint between groups).
-        if (pts.length > 0) {
-          let bestPt = pts[0]
-          // If there are 2 intersection points, prefer the one closer to the midline.
-          if (pts.length === 2) {
-            const mid = Math.atan2(c2y - c1y, c2x - c1x)
-            const ang0 = Math.atan2(pts[0][1] - CENTER, pts[0][0] - CENTER) - mid
-            const ang1 = Math.atan2(pts[1][1] - CENTER, pts[1][0] - CENTER) - mid
-            bestPt = Math.abs(ang0) < Math.abs(ang1) ? pts[0] : pts[1]
-          }
-
+        // Each circle pair can have 0, 1, or 2 intersection points.
+        if (pts.length >= 1) {
           intersections.push({
-            x: bestPt[0],
-            y: bestPt[1],
-            pair: pairIdx,
+            x: pts[0][0],
+            y: pts[0][1],
+            pairIdx,
+            groupIdx: 0, // first intersection (one side)
             radiusIdx,
           })
         }
+        if (pts.length >= 2) {
+          intersections.push({
+            x: pts[1][0],
+            y: pts[1][1],
+            pairIdx,
+            groupIdx: 1, // second intersection (other side)
+            radiusIdx,
+          })
+        }
+
         radiusIdx++
       }
     }
   })
 
   // Now assign 54 stickers to these intersection points.
-  // Each pair has 2 faces; each intersection gets one sticker per face.
-  // Local indices (0..8): spread across the 9 radius combinations per pair.
+  // We have exactly 54 intersections (ideally: 3 pairs × 2 sides × 9 radius combos).
+  // Assign faces in order: first 18 from pair 0, next 18 from pair 1, last 18 from pair 2.
+
   const nodes: NodePos[] = []
+  let nodeIdx = 0
 
   adjacentPairs.forEach((pair, pairIdx) => {
     const [g1, g2] = pair
     const [faceA, faceB] = GROUP_FACES[g1]
     const [faceC, faceD] = GROUP_FACES[g2]
 
-    // Intersections for this pair
-    const pairIntersections = intersections.filter((pt) => pt.pair === pairIdx)
+    // Get intersections for this pair, sorted by groupIdx then radiusIdx
+    const pairIntersections = intersections
+      .filter((pt) => pt.pairIdx === pairIdx)
+      .sort((a, b) => a.groupIdx - b.groupIdx || a.radiusIdx - b.radiusIdx)
 
-    // First 9 stickers (faceA): local 0..8
+    // Assign the first 9 to faceA
     for (let local = 0; local < 9 && local < pairIntersections.length; local++) {
       const pt = pairIntersections[local]
       nodes.push({
@@ -183,9 +190,9 @@ export function buildNodeLayout(): NodePos[] {
       })
     }
 
-    // Second 9 stickers (faceB): local 0..8
-    for (let local = 0; local < 9 && local < pairIntersections.length; local++) {
-      const pt = pairIntersections[local]
+    // Assign the next 9 to faceB
+    for (let local = 0; local < 9 && local + 9 < pairIntersections.length; local++) {
+      const pt = pairIntersections[local + 9]
       nodes.push({
         faceletIndex: FACE_OFFSET[faceB] + local,
         face: faceB,
@@ -194,7 +201,7 @@ export function buildNodeLayout(): NodePos[] {
       })
     }
 
-    // (faceC and faceD are handled by the next pair iteration, due to cyclic pairs)
+    nodeIdx += Math.min(18, pairIntersections.length)
   })
 
   // Ensure all 54 facelets are covered; fill any gaps with center positions.
