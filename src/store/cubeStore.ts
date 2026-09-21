@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import { solvedState, isSolved, type CubeState } from '../cube/facelet'
 import {
   applyMove,
@@ -27,48 +28,71 @@ type CubeStore = {
   undo: () => void
 }
 
-export const useCubeStore = create<CubeStore>((set, get) => ({
-  state: solvedState(),
-  history: [],
-  solved: true,
+export const useCubeStore = create<CubeStore>()(
+  persist(
+    (set, get) => ({
+      state: solvedState(),
+      history: [],
+      solved: true,
 
-  applyMove: (move) =>
-    set((s) => {
-      const next = applyMove(s.state, move)
-      return { state: next, history: [...s.history, move], solved: isSolved(next) }
+      applyMove: (move) =>
+        set((s) => {
+          const next = applyMove(s.state, move)
+          return { state: next, history: [...s.history, move], solved: isSolved(next) }
+        }),
+
+      applyMoves: (moves) =>
+        set((s) => {
+          const next = applyMoves(s.state, moves)
+          return {
+            state: next,
+            history: [...s.history, ...moves],
+            solved: isSolved(next),
+          }
+        }),
+
+      scramble: (length = 25) => {
+        const moves = randomScramble(length)
+        set((s) => {
+          const next = applyMoves(s.state, moves)
+          return {
+            state: next,
+            history: [...s.history, ...moves],
+            solved: isSolved(next),
+          }
+        })
+        return moves
+      },
+
+      reset: () => set({ state: solvedState(), history: [], solved: true }),
+
+      undo: () => {
+        const { history } = get()
+        if (history.length === 0) return
+        const nextHistory = history.slice(0, -1)
+        // Recompute from solved for correctness (cheap for a 3x3).
+        const next = applyMoves(solvedState(), nextHistory)
+        set({ state: next, history: nextHistory, solved: isSolved(next) })
+      },
     }),
-
-  applyMoves: (moves) =>
-    set((s) => {
-      const next = applyMoves(s.state, moves)
-      return {
-        state: next,
-        history: [...s.history, ...moves],
-        solved: isSolved(next),
-      }
-    }),
-
-  scramble: (length = 25) => {
-    const moves = randomScramble(length)
-    set((s) => {
-      const next = applyMoves(s.state, moves)
-      return {
-        state: next,
-        history: [...s.history, ...moves],
-        solved: isSolved(next),
-      }
-    })
-    return moves
-  },
-
-  reset: () => set({ state: solvedState(), history: [], solved: true }),
-
-  undo: () => {
-    const { history } = get()
-    if (history.length === 0) return
-    const nextHistory = history.slice(0, -1)
-    // Recompute from solved for correctness (cheap for a 3x3).
-    const next = applyMoves(solvedState(), nextHistory)
-    set({ state: next, history: nextHistory, solved: isSolved(next) })
-  },
-}))
+    {
+      name: 'rubiks-cube-state',
+      version: 1,
+      storage: createJSONStorage(() => localStorage),
+      // Persist only the move history; it fully determines the cube. The
+      // sticker state and solved flag are recomputed from it on load, so the
+      // stored payload stays small and self-heals if the state array is ever
+      // out of sync. All actions (moves, scramble, reset, undo) mutate history
+      // through the store, so each is captured automatically.
+      partialize: (s) => ({ history: s.history }),
+      // After the persisted history is rehydrated, replay it from the solved
+      // state to rebuild `state` and `solved`.
+      onRehydrateStorage: () => (persisted) => {
+        if (!persisted) return
+        const rebuilt = applyMoves(solvedState(), persisted.history)
+        persisted.state = rebuilt
+        persisted.solved = isSolved(rebuilt)
+      },
+    },
+  ),
+)
