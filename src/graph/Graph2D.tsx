@@ -48,7 +48,7 @@ export function Graph2D() {
 
   const size = LAYOUT_VIEWBOX.size
 
-  // Compute face label positions: place at the center (5th, index 4) sticker of each face
+  // Compute face label positions: place at the centroid of each face's stickers
   const faceLabelPositions = useMemo(() => {
     const positions: Record<Face, { x: number; y: number } | null> = {
       U: null,
@@ -59,9 +59,11 @@ export function Graph2D() {
       B: null,
     }
     for (const face of ['U', 'D', 'R', 'L', 'F', 'B'] as const) {
-      const faceNode = nodes.find((n) => n.face === face && (n.faceletIndex - FACE_OFFSET[face]) === 4)
-      if (faceNode) {
-        positions[face] = { x: faceNode.x, y: faceNode.y }
+      const faceNodes = nodes.filter((n) => n.face === face)
+      if (faceNodes.length > 0) {
+        const cx = faceNodes.reduce((s, n) => s + n.x, 0) / faceNodes.length
+        const cy = faceNodes.reduce((s, n) => s + n.y, 0) / faceNodes.length
+        positions[face] = { x: cx, y: cy }
       }
     }
     return positions

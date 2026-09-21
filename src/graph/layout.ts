@@ -1,13 +1,19 @@
 import { FACE_OFFSET, FACES, type Face } from '../cube/facelet'
 
 /**
- * Simplified layout: place 54 stickers at actual circle intersection points.
+ * Fixed 2D layout for the graph/mandala view, matching frame_00401.png:
  *
- * Strategy:
- *  1. Compute ALL intersections between circles from DIFFERENT groups
- *  2. Deduplicate to remove near-identical points
- *  3. Take the first 54 (or as many as exist)
- *  4. Assign to faces by spatial region (angle from center)
+ * KEY CONSTRAINT: Each of the 54 stickers sits at exactly ONE intersection point.
+ * No two faces share an intersection; each intersection belongs to one face.
+ *
+ * Geometry:
+ *  - 3 groups of 3 concentric circles (9 circles total)
+ *  - MIDDLE circle radius must pass through opposite group centers
+ *  - CIRCLE_DISTANCE = MIDDLE_RADIUS / sqrt(3) ≈ 12.7
+ *  - 3 adjacent pairs: (0,1), (1,2), (2,0)
+ *  - Each pair has 2 intersection sides (inner vs outer)
+ *  - Each side has 9 intersection points (3 radii from each group)
+ *  - Total: 3 pairs × 2 sides × 9 = 54 intersections
  */
 
 export type NodePos = { faceletIndex: number; x: number; y: number; face: Face }
@@ -15,17 +21,10 @@ export type NodePos = { faceletIndex: number; x: number; y: number; face: Face }
 const VIEW = 100
 const CENTER = VIEW / 2
 
-/**
- * KEY CONSTRAINT: Through each group's center, another group's MIDDLE circle passes.
- * This means: distance between adjacent group centers = MIDDLE_RADIUS.
- * For a triangle with 120° angles and side length = MIDDLE_RADIUS:
- *   circumradius = MIDDLE_RADIUS / sqrt(3)
- * So we place group centers at this distance from CENTER.
- */
 const MIDDLE_RADIUS = 22
 const CIRCLE_DISTANCE = MIDDLE_RADIUS / Math.sqrt(3) // ≈ 12.7
-const GROUP_ANGLES = [-90, 30, 150]
-const GROUP_RADII = [18, MIDDLE_RADIUS, 26]
+const GROUP_ANGLES = [-90, 30, 150] // degrees
+const GROUP_RADII = [16, MIDDLE_RADIUS, 28]
 
 const GROUP_FACES: Array<[Face, Face]> = [
   ['U', 'D'],
@@ -75,108 +74,94 @@ function groupCenter(group: number): [number, number] {
 
 /**
  * Build 54 node positions from circle intersections.
+ * Strategy:
+ *  - For each adjacent pair, compute all 18 intersections (9 per side)
+ *  - Assign side 0 to the first face, side 1 to the second face
+ *  - Deduplicate globally to ensure 54 unique points
+ *  - Each intersection belongs to exactly ONE face
  */
 export function buildNodeLayout(): NodePos[] {
-  interface RawPoint {
+  interface IntersectionPt {
     x: number
     y: number
-    angle: number
-    dist: number
+    face: Face
+    local: number // 0..8 within the face
   }
 
-  const allPoints: RawPoint[] = []
+  const intersections: IntersectionPt[] = []
 
-  // Compute intersections between circles from DIFFERENT groups
-  for (let g1 = 0; g1 < 3; g1++) {
-    for (let g2 = g1 + 1; g2 < 3; g2++) {
-      const [c1x, c1y] = groupCenter(g1)
-      const [c2x, c2y] = groupCenter(g2)
+  const adjacentPairs: Array<[number, number]> = [
+    [0, 1],
+    [1, 2],
+    [2, 0],
+  ]
 
-      for (const r1 of GROUP_RADII) {
-        for (const r2 of GROUP_RADII) {
-          const pts = circleIntersections(c1x, c1y, r1, c2x, c2y, r2)
-          for (const [x, y] of pts) {
-            const dx = x - CENTER
-            const dy = y - CENTER
-            allPoints.push({
-              x,
-              y,
-              angle: Math.atan2(dy, dx),
-              dist: Math.hypot(dx, dy),
-            })
-          }
+  // For each adjacent pair, compute intersections and assign to faces
+  adjacentPairs.forEach((pair, pairIdx) => {
+    const [g1, g2] = pair
+    const [faceA, faceB] = GROUP_FACES[g1]
+    const [c1x, c1y] = groupCenter(g1)
+    const [c2x, c2y] = groupCenter(g2)
+
+    let radiusIdx = 0
+    for (let r1Idx = 0; r1Idx < 3; r1Idx++) {
+      for (let r2Idx = 0; r2Idx < 3; r2Idx++) {
+        const r1 = GROUP_RADII[r1Idx]
+        const r2 = GROUP_RADII[r2Idx]
+        const pts = circleIntersections(c1x, c1y, r1, c2x, c2y, r2)
+
+        // Side 0 → faceA, local radiusIdx
+        if (pts.length >= 1) {
+          intersections.push({
+            x: pts[0][0],
+            y: pts[0][1],
+            face: faceA,
+            local: radiusIdx,
+          })
         }
+
+        // Side 1 → faceB, local radiusIdx
+        if (pts.length >= 2) {
+          intersections.push({
+            x: pts[1][0],
+            y: pts[1][1],
+            face: faceB,
+            local: radiusIdx,
+          })
+        }
+
+        radiusIdx++
       }
     }
-  }
+  })
 
-  // Deduplicate: keep points that are > 1.5 units apart (tighter to capture more points)
-  const deduped: RawPoint[] = []
-  for (const pt of allPoints) {
+  // Deduplicate: if two points are very close, keep only the first
+  const deduped: IntersectionPt[] = []
+  for (const pt of intersections) {
     const isDupe = deduped.some(
-      (d) => Math.hypot(d.x - pt.x, d.y - pt.y) < 1.5,
+      (d) => Math.hypot(d.x - pt.x, d.y - pt.y) < 1.2,
     )
     if (!isDupe) deduped.push(pt)
   }
 
-  // Sort by angle (starting from -90 degrees, going counterclockwise)
-  deduped.sort((a, b) => a.angle - b.angle)
-
-  // Assign to faces based on angular regions
-  // Remapped per user request: L→U, U→F, B→L, D→B, F→D, R stays
-  // Divide circle into 6 regions of 60° each, starting at 0°
-  // Regions map to: `['R', 'D', 'F', 'L', 'U', 'B']`
-  // So: R at 0-60°, D at 60-120°, F at 120-180°, L at 180-240°, U at 240-300°, B at 300-360°
-  
-  const faceForAngle = (angle: number): Face => {
-    // Normalize angle to [0, 2π]
-    let norm = angle
-    if (norm < 0) norm += 2 * Math.PI
-    
-    // Divide into 6 regions of 60° each, with offsets to avoid boundary issues
-    // Offset by 30° to center region boundaries in "gaps" between face clusters
-    const regionAngle = ((norm + Math.PI / 6) / (2 * Math.PI)) * 6
-    const region = Math.floor(regionAngle) % 6
-    
-    // Map regions to faces (remapped): R, D, F, L, U, B
-    const faces: Face[] = ['R', 'D', 'F', 'L', 'U', 'B']
-    return faces[region]
-  }
-
+  // Build nodes: use deduplicated points
   const nodes: NodePos[] = []
-  const faceStickers: Record<Face, Array<{ x: number; y: number }>> = {
-    U: [],
-    D: [],
-    R: [],
-    L: [],
-    F: [],
-    B: [],
-  }
-
-  // Assign deduplicated intersection points to faces by angle, preserving coordinates
-  // Only add if we haven't reached 9 stickers for that face
   for (const pt of deduped) {
-    const face = faceForAngle(pt.angle)
-    if (faceStickers[face].length < 9) {
-      faceStickers[face].push({ x: pt.x, y: pt.y })
-    }
+    nodes.push({
+      faceletIndex: FACE_OFFSET[pt.face] + pt.local,
+      face: pt.face,
+      x: pt.x,
+      y: pt.y,
+    })
   }
 
-  // Now map each face's stickers to local indices 0..8, using exact coordinates
+  // Fallback: fill any missing facelets with center
   for (const face of FACES) {
-    const stickers = faceStickers[face]
     for (let local = 0; local < 9; local++) {
-      if (local < stickers.length) {
+      const faceletIdx = FACE_OFFSET[face] + local
+      if (!nodes.some((n) => n.faceletIndex === faceletIdx)) {
         nodes.push({
-          faceletIndex: FACE_OFFSET[face] + local,
-          face,
-          x: stickers[local].x,
-          y: stickers[local].y,
-        })
-      } else {
-        // Fallback: place at center if we don't have 9 intersections for this face
-        nodes.push({
-          faceletIndex: FACE_OFFSET[face] + local,
+          faceletIndex: faceletIdx,
           face,
           x: CENTER,
           y: CENTER,
