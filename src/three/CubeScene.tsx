@@ -200,7 +200,7 @@ export function CubeScene({
 
   return (
     <Canvas
-      camera={{ position: [5, 5, 6], fov: 40 }}
+      camera={{ position: [3.9, 3.9, 4.7], fov: 40 }}
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: true }}
       style={{ width: '100%', height: '100%' }}
@@ -215,7 +215,7 @@ export function CubeScene({
         ref={orbitRef as never}
         enablePan={false}
         enableZoom
-        minDistance={4}
+        minDistance={3}
         maxDistance={12}
         rotateSpeed={0.9}
         autoRotate={false}

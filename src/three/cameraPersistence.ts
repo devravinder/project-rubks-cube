@@ -13,10 +13,12 @@ export type CameraPose = {
   target: [number, number, number]
 }
 
-/** The default view (U up, F forward, R visible), used when nothing is saved. */
+/** The default view (U up, F forward, R visible), used when nothing is saved.
+ *  Target is nudged DOWN (-y) so the cube sits a bit higher in the panel and
+ *  doesn't overlap the bottom/edges. */
 export const DEFAULT_CAMERA_POSE: CameraPose = {
-  position: [5, 5, 6],
-  target: [0, 0, 0],
+  position: [3.9, 3.9, 4.7],
+  target: [0, -0.3, 0],
 }
 
 /** Load the saved camera pose, or null if absent/invalid. */

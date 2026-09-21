@@ -20,11 +20,20 @@ export type NodePos = { faceletIndex: number; x: number; y: number; face: Face }
 
 const VIEW = 100
 const CENTER = VIEW / 2
+// Vertical center is nudged DOWN so the top (U) cluster doesn't clip the panel's
+// top edge. Only affects y; x stays centered.
+const CENTER_Y = VIEW / 2 + 6
 
-const MIDDLE_RADIUS = 22
-const CIRCLE_DISTANCE = MIDDLE_RADIUS / Math.sqrt(3) // ≈ 12.7
-const GROUP_ANGLES = [-90, 30, 150] // degrees
-const GROUP_RADII = [18, MIDDLE_RADIUS, 26]
+// Overall scale of the 2D mandala within the fixed 100×100 viewBox. Increasing
+// this enlarges circles/stickers on screen (they fill more of the panel). Only
+// radial distances scale — GROUP_ANGLES are unchanged, so every sticker keeps
+// its angular position and the ring rotation logic is unaffected.
+const SCALE = 1.35
+
+const MIDDLE_RADIUS = 22 * SCALE
+const CIRCLE_DISTANCE = MIDDLE_RADIUS / Math.sqrt(3)
+const GROUP_ANGLES = [-90, 30, 150] // degrees (unchanged — preserves angles)
+const GROUP_RADII = [18 * SCALE, MIDDLE_RADIUS, 26 * SCALE]
 
 const GROUP_FACES: Array<[Face, Face]> = [
   ['F', 'B'],
@@ -69,7 +78,7 @@ function rot(x: number, y: number, deg: number): [number, number] {
 function groupCenter(group: number): [number, number] {
   const angle = GROUP_ANGLES[group]
   const [dx, dy] = rot(0, -CIRCLE_DISTANCE, angle + 90)
-  return [CENTER + dx, CENTER + dy]
+  return [CENTER + dx, CENTER_Y + dy]
 }
 
 /**
@@ -97,7 +106,7 @@ export function buildNodeLayout(): NodePos[] {
   ]
 
   // For each adjacent pair, compute intersections and assign to faces
-  adjacentPairs.forEach((pair, pairIdx) => {
+  adjacentPairs.forEach((pair) => {
     const [g1, g2] = pair
     const [faceA, faceB] = GROUP_FACES[g1]
     const [c1x, c1y] = groupCenter(g1)
@@ -139,7 +148,7 @@ export function buildNodeLayout(): NodePos[] {
   const deduped: IntersectionPt[] = []
   for (const pt of intersections) {
     const isDupe = deduped.some(
-      (d) => Math.hypot(d.x - pt.x, d.y - pt.y) < 1.2,
+      (d) => Math.hypot(d.x - pt.x, d.y - pt.y) < 1.2 * SCALE,
     )
     if (!isDupe) deduped.push(pt)
   }
@@ -164,7 +173,7 @@ export function buildNodeLayout(): NodePos[] {
           faceletIndex: faceletIdx,
           face,
           x: CENTER,
-          y: CENTER,
+          y: CENTER_Y,
         })
       }
     }
@@ -218,11 +227,12 @@ export type Ring = {
   slots: RingSlot[]
 }
 
-/** Distance bands (from a face-cluster center) for its 3 concentric circles. */
+/** Distance bands (from a face-cluster center) for its 3 concentric circles.
+ *  Scaled with SCALE so they still bracket the inner/middle/outer node radii. */
 const RING_BANDS = {
-  inner: [15, 20] as [number, number], // d ≈ 18
-  middle: [20, 24] as [number, number], // d ≈ 22 (static)
-  outer: [24, 29] as [number, number], // d ≈ 26
+  inner: [15 * SCALE, 20 * SCALE] as [number, number], // d ≈ 18*SCALE
+  middle: [20 * SCALE, 24 * SCALE] as [number, number], // d ≈ 22*SCALE (static)
+  outer: [24 * SCALE, 29 * SCALE] as [number, number], // d ≈ 26*SCALE
 }
 
 /**
@@ -279,4 +289,4 @@ export function innerGroupRings(face: Face, nodes: NodePos[]): GroupRings {
 export const RING_QUARTER_STEP = 3
 
 export const LAYOUT_VIEWBOX = { size: VIEW }
-export const NODE_RADIUS = 1.8
+export const NODE_RADIUS = 2.4
