@@ -1,6 +1,7 @@
 import { useMemo, useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { Group } from 'three'
+import { Text } from '@react-three/drei'
 import { useCubeStore } from '../store/cubeStore'
 import type { Face } from '../cube/facelet'
 import type { MoveName } from '../cube/moves'
@@ -106,6 +107,26 @@ export const Cube3D = forwardRef<Cube3DHandle, Cube3DProps>(function Cube3D(
       <group ref={pivotRef}>
         {anim && groups.filter((g) => isInLayer(g.position)).map(renderCubie)}
       </group>
+
+      {/* Face labels (temporary debug). */}
+      <Text position={[0, 0, 3.5]} fontSize={0.8} color="black" anchorX="center" anchorY="middle">
+        F
+      </Text>
+      <Text position={[0, 0, -3.5]} fontSize={0.8} color="black" anchorX="center" anchorY="middle">
+        B
+      </Text>
+      <Text position={[3.5, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI / 2, 0]}>
+        R
+      </Text>
+      <Text position={[-3.5, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI / 2, 0]}>
+        L
+      </Text>
+      <Text position={[0, 3.5, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, 0]}>
+        U
+      </Text>
+      <Text position={[0, -3.5, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, 0]}>
+        D
+      </Text>
     </group>
   )
 })
