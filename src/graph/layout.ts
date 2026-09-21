@@ -153,31 +153,29 @@ export function buildNodeLayout(): NodePos[] {
   }
 
   // Assign deduplicated intersection points to faces by angle, preserving coordinates
+  // Only add if we haven't reached 9 stickers for that face
   for (const pt of deduped) {
     const face = faceForAngle(pt.angle)
-    faceStickers[face].push({ x: pt.x, y: pt.y })
+    if (faceStickers[face].length < 9) {
+      faceStickers[face].push({ x: pt.x, y: pt.y })
+    }
   }
 
   // Now map each face's stickers to local indices 0..8, using exact coordinates
   for (const face of FACES) {
     const stickers = faceStickers[face]
-    for (let local = 0; local < 9 && local < stickers.length; local++) {
-      nodes.push({
-        faceletIndex: FACE_OFFSET[face] + local,
-        face,
-        x: stickers[local].x,
-        y: stickers[local].y,
-      })
-    }
-  }
-
-  // Fallback: fill any missing facelets with center
-  for (const face of FACES) {
     for (let local = 0; local < 9; local++) {
-      const faceletIdx = FACE_OFFSET[face] + local
-      if (!nodes.some((n) => n.faceletIndex === faceletIdx)) {
+      if (local < stickers.length) {
         nodes.push({
-          faceletIndex: faceletIdx,
+          faceletIndex: FACE_OFFSET[face] + local,
+          face,
+          x: stickers[local].x,
+          y: stickers[local].y,
+        })
+      } else {
+        // Fallback: place at center if we don't have 9 intersections for this face
+        nodes.push({
+          faceletIndex: FACE_OFFSET[face] + local,
           face,
           x: CENTER,
           y: CENTER,
