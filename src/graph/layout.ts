@@ -23,12 +23,17 @@ const CENTER = VIEW / 2
  * The 3 group centers sit on a circle (CIRCLE_DISTANCE from center) at 120-deg
  * angles. This creates the TRIANGLE of centers seen in the reference, with a
  * visible central gap.
+ *
+ * Tuned so that adjacent circles overlap significantly:
+ * - Distance between adjacent centers ≈ 2 * CIRCLE_DISTANCE * sin(60°)
+ * - With CIRCLE_DISTANCE=20: inter-center distance ≈ 34.6
+ * - With radii [16, 22, 28]: max overlap = 28+28=56 >> 34.6 ✓
  */
-const CIRCLE_DISTANCE = 30 // distance of group centers from the central point
+const CIRCLE_DISTANCE = 20 // reduced to bring centers closer
 const GROUP_ANGLES = [-90, 30, 150] // degrees: top, lower-right, lower-left
 
-/** Three concentric radii per group (tight nesting for small gaps between circles). */
-const GROUP_RADII = [14, 20, 26]
+/** Three concentric radii per group (expanded so circles overlap across groups). */
+const GROUP_RADII = [16, 22, 28]
 
 /**
  * Face assignment per group: which two opposite faces' stickers live in each group.
