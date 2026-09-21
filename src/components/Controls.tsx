@@ -19,6 +19,7 @@ export function Controls() {
         onClick={undo}
         disabled={historyLength === 0}
         title="Undo last move"
+        className="px-2"
       >
         Undo
       </Button>
@@ -27,6 +28,7 @@ export function Controls() {
         onClick={reset}
         disabled={solved}
         title="Reset to solved"
+        className="px-2"
       >
         Reset
       </Button>
