@@ -110,11 +110,11 @@ export function buildNodeLayout(): NodePos[] {
     }
   }
 
-  // Deduplicate: keep points that are > 2.0 units apart
+  // Deduplicate: keep points that are > 1.5 units apart (tighter to capture more points)
   const deduped: RawPoint[] = []
   for (const pt of allPoints) {
     const isDupe = deduped.some(
-      (d) => Math.hypot(d.x - pt.x, d.y - pt.y) < 2.0,
+      (d) => Math.hypot(d.x - pt.x, d.y - pt.y) < 1.5,
     )
     if (!isDupe) deduped.push(pt)
   }
