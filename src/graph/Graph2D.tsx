@@ -1,10 +1,13 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCubeStore } from '../store/cubeStore'
 import { FACE_COLOR, type Face } from '../cube/facelet'
 import { resolveGraphTurn } from './graphTurn'
 import {
   buildNodeLayout,
   guideCircles,
+  innerGroupRing,
+  INNER_GROUPS,
+  OPPOSITE_FACE,
   LAYOUT_VIEWBOX,
   NODE_RADIUS,
   type NodePos,
@@ -12,17 +15,89 @@ import {
 
 const DRAG_THRESHOLD = 6
 
+type XY = { x: number; y: number }
+
 /**
- * The 2D graph/mandala view. One dot per sticker, colored from the same shared
- * state as the 3D cube, arranged in the 3-fold trefoil of the reference. The
- * overlapping concentric circles are the cycle "tracks". Dragging a node turns
- * the corresponding face (updating the shared store, so both views stay synced).
+ * The 2D graph/mandala view. One dot per sticker, arranged in the 3-fold
+ * trefoil of the reference, colored by home face (decoupled from cube state
+ * while we build the circle-rotation model). It subscribes to the store's
+ * `lastMove` signal so button/drag/3D moves drive the 2D circle rotation.
+ *
+ * Rotation model (Option B — real positions):
+ *  - Each inner group (U/R/F) has a circle whose ring holds 12 nodes from the 4
+ *    adjacent faces, grouped into 4 arcs of 3.
+ *  - A move on an INNER group rotates ITS OWN circle.
+ *  - A move on an OUTER group (D/L/B) rotates its OPPOSITE inner group's circle.
+ *  - Clockwise: each arc's 3 stickers advance one arc-step clockwise
+ *    (arc i -> arc i+1). Prime moves go counter-clockwise.
+ *  - Stickers physically move to the next arc's positions (not just a spin).
  */
 export function Graph2D() {
-  const state = useCubeStore((s) => s.state)
   const applyMove = useCubeStore((s) => s.applyMove)
+  const lastMove = useCubeStore((s) => s.lastMove)
   const nodes = useMemo(() => buildNodeLayout(), [])
   const circles = useMemo(() => guideCircles(), [])
+
+  // Precompute each inner group's ring (center, radius, 4 arcs of facelet ids).
+  const rings = useMemo(() => {
+    const map: Record<string, ReturnType<typeof innerGroupRing>> = {}
+    for (const f of INNER_GROUPS) map[f] = innerGroupRing(f, nodes)
+    return map
+  }, [nodes])
+
+  // Live render positions: faceletIndex -> {x,y}. Starts at home positions and
+  // is mutated by ring rotations. This is the 2D-local permutation.
+  const [renderPos, setRenderPos] = useState<Record<number, XY>>(() => {
+    const init: Record<number, XY> = {}
+    for (const n of nodes) init[n.faceletIndex] = { x: n.x, y: n.y }
+    return init
+  })
+
+  // Apply one arc-step rotation to the ring of `innerFace` (the circle that
+  // owns the rotation). `clockwise` chooses arc i -> i+1 vs i -> i-1.
+  const rotateRing = (innerFace: Face, clockwise: boolean) => {
+    const ring = rings[innerFace]
+    if (!ring) return
+    const { arcs } = ring
+    if (arcs.length !== 4) return
+
+    setRenderPos((prev) => {
+      const next = { ...prev }
+      // Capture the CURRENT positions occupied by each arc's stickers.
+      const arcPositions = arcs.map((arc) => arc.map((id) => prev[id]))
+      // Move each arc's stickers to the neighbouring arc's positions.
+      for (let i = 0; i < 4; i++) {
+        const targetArc = clockwise ? (i + 1) % 4 : (i + 3) % 4
+        const ids = arcs[i]
+        const destPositions = arcPositions[targetArc]
+        for (let k = 0; k < ids.length; k++) {
+          next[ids[k]] = destPositions[k]
+        }
+      }
+      return next
+    })
+  }
+
+  // React to each new move: pick the circle to rotate and the direction.
+  const lastSeq = useRef<number>(0)
+  useEffect(() => {
+    if (!lastMove || lastMove.seq === lastSeq.current) return
+    lastSeq.current = lastMove.seq
+
+    const move = lastMove.move
+    const face = move[0] as Face
+    const prime = move.includes("'")
+    const isDouble = move.includes('2')
+
+    // Inner group rotates its own circle; outer group rotates its opposite's.
+    const innerFace = INNER_GROUPS.includes(face) ? face : OPPOSITE_FACE[face]
+
+    // Clockwise for a base move; counter-clockwise for prime.
+    const clockwise = !prime
+    rotateRing(innerFace, clockwise)
+    if (isDouble) rotateRing(innerFace, clockwise)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastMove])
 
   const drag = useRef<{ node: NodePos; startX: number; startY: number } | null>(null)
 
@@ -100,21 +175,25 @@ export function Graph2D() {
         ))}
       </g>
 
-      {/* Sticker nodes. */}
+      {/* Sticker nodes. Colored by their HOME face (frozen); positioned by the
+          live 2D permutation (renderPos), which ring rotations mutate. */}
       <g>
-        {nodes.map((node) => (
-          <circle
-            key={node.faceletIndex}
-            cx={node.x}
-            cy={node.y}
-            r={NODE_RADIUS}
-            fill={FACE_COLOR[state[node.faceletIndex] as Face]}
-            stroke="rgba(0,0,0,0.4)"
-            strokeWidth={0.25}
-            className="cursor-grab touch-none"
-            onPointerDown={onPointerDown(node)}
-          />
-        ))}
+        {nodes.map((node) => {
+          const p = renderPos[node.faceletIndex] ?? { x: node.x, y: node.y }
+          return (
+            <circle
+              key={node.faceletIndex}
+              cx={p.x}
+              cy={p.y}
+              r={NODE_RADIUS}
+              fill={FACE_COLOR[node.face]}
+              stroke="rgba(0,0,0,0.4)"
+              strokeWidth={0.25}
+              className="cursor-grab touch-none"
+              onPointerDown={onPointerDown(node)}
+            />
+          )
+        })}
       </g>
 
       {/* Face labels at the centroid of each face cluster. */}

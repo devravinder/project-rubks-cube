@@ -186,5 +186,78 @@ export function guideCircles(): GuideCircle[] {
   return circles
 }
 
+/** The 3 inner groups (each has its own rotation circle) and their opposites. */
+export const INNER_GROUPS: Face[] = ['U', 'R', 'F']
+export const OPPOSITE_FACE: Record<Face, Face> = {
+  U: 'D',
+  D: 'U',
+  F: 'B',
+  B: 'F',
+  R: 'L',
+  L: 'R',
+}
+
+/** Centroid (cluster center) of a face's 9 nodes — the pivot of its circle. */
+export function faceCenter(face: Face, nodes: NodePos[]): [number, number] {
+  const fn = nodes.filter((n) => n.face === face)
+  const cx = fn.reduce((s, n) => s + n.x, 0) / fn.length
+  const cy = fn.reduce((s, n) => s + n.y, 0) / fn.length
+  return [cx, cy]
+}
+
+/**
+ * For an inner group (U/R/F), return the ring of 12 neighboring-face nodes that
+ * lie ON that group's circle, grouped into 4 arcs of 3 (one arc per adjacent
+ * face), ordered clockwise by screen angle. Each entry is a facelet index.
+ *
+ * A move rotates these arcs: for a clockwise turn, each arc's 3 stickers advance
+ * one arc-step clockwise (arc i -> arc i+1). This is the real positional cycle.
+ */
+export type RingArcs = {
+  center: [number, number]
+  radius: number
+  /** 4 arcs, clockwise; each arc is 3 facelet indices ordered clockwise. */
+  arcs: number[][]
+}
+
+export function innerGroupRing(face: Face, nodes: NodePos[]): RingArcs {
+  const [cx, cy] = faceCenter(face, nodes)
+
+  // Nodes lying on the ring (radius ~17.6 for the current geometry).
+  const onRing = nodes
+    .map((n) => ({
+      n,
+      d: Math.hypot(n.x - cx, n.y - cy),
+      ang: (Math.atan2(n.y - cy, n.x - cx) * 180) / Math.PI,
+    }))
+    .filter((x) => x.d > 15 && x.d < 20)
+
+  // Normalise angle to [0,360) and sort clockwise. In SVG, +y is down, so
+  // increasing atan2 angle is clockwise on screen.
+  for (const x of onRing) if (x.ang < 0) x.ang += 360
+  onRing.sort((a, b) => a.ang - b.ang)
+
+  // Group consecutive nodes into arcs by face (each adjacent face contributes a
+  // contiguous run of 3). Preserve clockwise order.
+  const arcsByFace = new Map<Face, number[]>()
+  const faceOrder: Face[] = []
+  for (const x of onRing) {
+    const f = x.n.face
+    if (!arcsByFace.has(f)) {
+      arcsByFace.set(f, [])
+      faceOrder.push(f)
+    }
+    arcsByFace.get(f)!.push(x.n.faceletIndex)
+  }
+
+  const arcs = faceOrder.map((f) => arcsByFace.get(f)!)
+
+  // Radius = average ring distance.
+  const radius =
+    onRing.reduce((s, x) => s + x.d, 0) / Math.max(1, onRing.length)
+
+  return { center: [cx, cy], radius, arcs }
+}
+
 export const LAYOUT_VIEWBOX = { size: VIEW }
 export const NODE_RADIUS = 1.8

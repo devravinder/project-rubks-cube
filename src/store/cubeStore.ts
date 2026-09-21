@@ -15,6 +15,13 @@ type CubeStore = {
   history: MoveName[]
   /** Whether the cube is currently solved. */
   solved: boolean
+  /**
+   * The most recent single move plus a monotonic sequence number. The 2D graph
+   * subscribes to this to drive its own circle rotation independently of the
+   * cube state. `seq` increments on every applyMove so repeated identical moves
+   * (e.g. U then U) are still detected as distinct triggers. Null until first move.
+   */
+  lastMove: { move: MoveName; seq: number } | null
 
   /** Apply a single move and record it. */
   applyMove: (move: MoveName) => void
@@ -34,11 +41,17 @@ export const useCubeStore = create<CubeStore>()(
       state: solvedState(),
       history: [],
       solved: true,
+      lastMove: null,
 
       applyMove: (move) =>
         set((s) => {
           const next = applyMove(s.state, move)
-          return { state: next, history: [...s.history, move], solved: isSolved(next) }
+          return {
+            state: next,
+            history: [...s.history, move],
+            solved: isSolved(next),
+            lastMove: { move, seq: (s.lastMove?.seq ?? 0) + 1 },
+          }
         }),
 
       applyMoves: (moves) =>
