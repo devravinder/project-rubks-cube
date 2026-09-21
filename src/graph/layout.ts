@@ -123,14 +123,10 @@ export function buildNodeLayout(): NodePos[] {
   deduped.sort((a, b) => a.angle - b.angle)
 
   // Assign to faces based on angular regions
-  // Looking down from above: U is up, F is forward (top-right), R is right
-  // Divide circle into 6 regions of 60° each, starting at -90° (left, which is -X or L face)
-  // -90° to -30°: L (left)
-  // -30° to 30°: R (right)  
-  // 30° to 90°: F (front, top-right when viewed from camera angle)
-  // 90° to 150°: U (up, top)
-  // 150° to -150°: B (back)
-  // -150° to -90°: D (down, bottom)
+  // Remapped per user request: L→U, U→F, B→L, D→B, F→D, R stays
+  // Divide circle into 6 regions of 60° each, starting at 0°
+  // Regions map to: `['R', 'D', 'F', 'L', 'U', 'B']`
+  // So: R at 0-60°, D at 60-120°, F at 120-180°, L at 180-240°, U at 240-300°, B at 300-360°
   
   const faceForAngle = (angle: number): Face => {
     // Normalize angle to [0, 2π]
@@ -141,8 +137,8 @@ export function buildNodeLayout(): NodePos[] {
     const regionAngle = (norm / (2 * Math.PI)) * 6
     const region = Math.floor(regionAngle) % 6
     
-    // Map regions to faces based on angle regions
-    const faces: Face[] = ['R', 'F', 'U', 'B', 'L', 'D']
+    // Map regions to faces (remapped)
+    const faces: Face[] = ['R', 'D', 'F', 'L', 'U', 'B']
     return faces[region]
   }
 
