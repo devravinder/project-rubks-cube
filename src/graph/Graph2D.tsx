@@ -1,103 +1,124 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import { useCubeStore } from '../store/cubeStore'
 import { FACE_COLOR, type Face } from '../cube/facelet'
 import { resolveGraphTurn } from './graphTurn'
 import {
   buildNodeLayout,
   guideCircles,
-  innerGroupRing,
+  innerGroupRings,
   INNER_GROUPS,
   OPPOSITE_FACE,
+  RING_QUARTER_STEP,
   LAYOUT_VIEWBOX,
   NODE_RADIUS,
   type NodePos,
+  type Ring,
 } from './layout'
 
 const DRAG_THRESHOLD = 6
 
 type XY = { x: number; y: number }
 
+const RING_KEYS = INNER_GROUPS.flatMap((f) => [`${f}:inner`, `${f}:outer`])
+
 /**
- * The 2D graph/mandala view. One dot per sticker, arranged in the 3-fold
- * trefoil of the reference, colored by home face (decoupled from cube state
- * while we build the circle-rotation model). It subscribes to the store's
- * `lastMove` signal so button/drag/3D moves drive the 2D circle rotation.
+ * The 2D graph/mandala view. Colored by home face (decoupled from cube state).
  *
- * Rotation model (Option B — real positions):
- *  - Each inner group (U/R/F) has a circle whose ring holds 12 nodes from the 4
- *    adjacent faces, grouped into 4 arcs of 3.
- *  - A move on an INNER group rotates ITS OWN circle.
- *  - A move on an OUTER group (D/L/B) rotates its OPPOSITE inner group's circle.
- *  - Clockwise: each arc's 3 stickers advance one arc-step clockwise
- *    (arc i -> arc i+1). Prime moves go counter-clockwise.
- *  - Stickers physically move to the next arc's positions (not just a spin).
+ * Rotation model (canonical 12-slot + history-derived offset):
+ *  - Each inner group (U/R/F) has an INNER and OUTER ring; each is 12 slots
+ *    ordered clockwise (0..11). The MIDDLE ring is static.
+ *  - A quarter-turn shifts a ring's occupants by 3 slots (12/4). CW = +3, CCW = -3.
+ *  - Inner-group move (U) rotates its INNER ring; the opposite face (D) rotates
+ *    the OUTER ring (U's outer == D's inner).
+ *  - Per-ring offset is derived by folding the move HISTORY, so the 2D view
+ *    survives refresh with no extra storage and always matches the cube.
  */
 export function Graph2D() {
   const applyMove = useCubeStore((s) => s.applyMove)
-  const lastMove = useCubeStore((s) => s.lastMove)
+  const history = useCubeStore((s) => s.history)
   const nodes = useMemo(() => buildNodeLayout(), [])
   const circles = useMemo(() => guideCircles(), [])
 
-  // Precompute each inner group's ring (center, radius, 4 arcs of facelet ids).
-  const rings = useMemo(() => {
-    const map: Record<string, ReturnType<typeof innerGroupRing>> = {}
-    for (const f of INNER_GROUPS) map[f] = innerGroupRing(f, nodes)
+  // Build the 6 rings (U/R/F × inner/outer), each 12 canonical slots.
+  const ringByKey = useMemo(() => {
+    const map: Record<string, Ring> = {}
+    for (const f of INNER_GROUPS) {
+      const { inner, outer } = innerGroupRings(f, nodes)
+      map[`${f}:inner`] = inner
+      map[`${f}:outer`] = outer
+    }
     return map
   }, [nodes])
 
-  // Live render positions: faceletIndex -> {x,y}. Starts at home positions and
-  // is mutated by ring rotations. This is the 2D-local permutation.
-  const [renderPos, setRenderPos] = useState<Record<number, XY>>(() => {
-    const init: Record<number, XY> = {}
-    for (const n of nodes) init[n.faceletIndex] = { x: n.x, y: n.y }
-    return init
-  })
-
-  // Apply one arc-step rotation to the ring of `innerFace` (the circle that
-  // owns the rotation). `clockwise` chooses arc i -> i+1 vs i -> i-1.
-  const rotateRing = (innerFace: Face, clockwise: boolean) => {
-    const ring = rings[innerFace]
-    if (!ring) return
-    const { arcs } = ring
-    if (arcs.length !== 4) return
-
-    setRenderPos((prev) => {
-      const next = { ...prev }
-      // Capture the CURRENT positions occupied by each arc's stickers.
-      const arcPositions = arcs.map((arc) => arc.map((id) => prev[id]))
-      // Move each arc's stickers to the neighbouring arc's positions.
-      for (let i = 0; i < 4; i++) {
-        const targetArc = clockwise ? (i + 1) % 4 : (i + 3) % 4
-        const ids = arcs[i]
-        const destPositions = arcPositions[targetArc]
-        for (let k = 0; k < ids.length; k++) {
-          next[ids[k]] = destPositions[k]
-        }
-      }
-      return next
-    })
+  // Which ring key + direction a move affects. Inner group -> its inner ring;
+  // outer group -> its opposite inner group's outer ring.
+  const ringKeyForMove = (
+    move: string,
+  ): { key: string; dir: number; quarters: number } => {
+    const face = move[0] as Face
+    const isInner = INNER_GROUPS.includes(face)
+    const ownerFace = isInner ? face : OPPOSITE_FACE[face]
+    const band = isInner ? 'inner' : 'outer'
+    const dir = move.includes("'") ? -1 : 1 // CW = +, CCW = -
+    const quarters = move.includes('2') ? 2 : 1
+    return { key: `${ownerFace}:${band}`, dir, quarters }
   }
 
-  // React to each new move: pick the circle to rotate and the direction.
-  const lastSeq = useRef<number>(0)
-  useEffect(() => {
-    if (!lastMove || lastMove.seq === lastSeq.current) return
-    lastSeq.current = lastMove.seq
+  // Derive each sticker's render position by REPLAYING the move history.
+  //
+  // Positions (screen coords) are the stable entities; stickers flow between
+  // them. `occupantAt[posIdx]` = the facelet id currently shown at that slot.
+  // Rings share positions (a sticker can belong to several rings), so we must
+  // replay moves in order: each move cycles its ring's 12 slots by 3, carrying
+  // whatever sticker currently sits there. A per-ring offset would be wrong
+  // because shared stickers would be double-counted.
+  const { renderPos } = useMemo(() => {
+    // Stable position list: each node's home (x,y) is one position, indexed by
+    // faceletIndex (unique). posOf[id] = home coordinate of that slot.
+    const posOf: Record<number, XY> = {}
+    for (const n of nodes) posOf[n.faceletIndex] = { x: n.x, y: n.y }
 
-    const move = lastMove.move
-    const face = move[0] as Face
-    const prime = move.includes("'")
-    const isDouble = move.includes('2')
+    // occupant[slotId] = faceletId currently displayed at that slot. Start = identity.
+    const occupant: Record<number, number> = {}
+    for (const n of nodes) occupant[n.faceletIndex] = n.faceletIndex
 
-    // Inner group rotates its own circle; outer group rotates its opposite's.
-    const innerFace = INNER_GROUPS.includes(face) ? face : OPPOSITE_FACE[face]
+    // Each ring is an ordered list of 12 slot ids (faceletIndex of the slot).
+    const ringSlotIds: Record<string, number[]> = {}
+    for (const key of RING_KEYS) {
+      const ring = ringByKey[key]
+      ringSlotIds[key] = ring ? ring.slots.map((s) => s.faceletIndex) : []
+    }
 
-    // Clockwise for a base move; counter-clockwise for prime.
-    const clockwise = !prime
-    rotateRing(innerFace, clockwise)
-    if (isDouble) rotateRing(innerFace, clockwise)
+    // Rotate one ring by `steps` slots (positive = clockwise/+). Moves the
+    // occupant currently at slot i to slot (i+steps) mod 12.
+    const rotate = (key: string, steps: number) => {
+      const slotIds = ringSlotIds[key]
+      const n = slotIds.length
+      if (n !== 12) return
+      const shift = ((steps % n) + n) % n
+      if (shift === 0) return
+      const current = slotIds.map((sid) => occupant[sid])
+      for (let i = 0; i < n; i++) {
+        occupant[slotIds[(i + shift) % n]] = current[i]
+      }
+    }
+
+    // Replay history in order.
+    for (const move of history) {
+      const { key, dir, quarters } = ringKeyForMove(move)
+      rotate(key, dir * quarters * RING_QUARTER_STEP)
+    }
+
+    // Render position for each sticker = the position of the slot it occupies.
+    // occupant[slotId] = stickerId  =>  sticker `stickerId` renders at posOf[slotId].
+    const renderPos: Record<number, XY> = { ...posOf }
+    for (const slotId of Object.keys(occupant).map(Number)) {
+      const stickerId = occupant[slotId]
+      renderPos[stickerId] = posOf[slotId]
+    }
+    return { renderPos }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastMove])
+  }, [history, ringByKey, nodes])
 
   const drag = useRef<{ node: NodePos; startX: number; startY: number } | null>(null)
 

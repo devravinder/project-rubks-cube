@@ -206,58 +206,77 @@ export function faceCenter(face: Face, nodes: NodePos[]): [number, number] {
 }
 
 /**
- * For an inner group (U/R/F), return the ring of 12 neighboring-face nodes that
- * lie ON that group's circle, grouped into 4 arcs of 3 (one arc per adjacent
- * face), ordered clockwise by screen angle. Each entry is a facelet index.
- *
- * A move rotates these arcs: for a clockwise turn, each arc's 3 stickers advance
- * one arc-step clockwise (arc i -> arc i+1). This is the real positional cycle.
+ * A ring is 12 slots ordered strictly clockwise by screen angle (index 0..11).
+ * Each slot has a fixed position and the facelet index that natively sits there
+ * (the "home" occupant). A quarter-turn rotates occupants by 3 slots.
  */
-export type RingArcs = {
+export type RingSlot = { faceletIndex: number; x: number; y: number; face: Face }
+export type Ring = {
   center: [number, number]
   radius: number
-  /** 4 arcs, clockwise; each arc is 3 facelet indices ordered clockwise. */
-  arcs: number[][]
+  /** 12 slots, clockwise from angle 0. */
+  slots: RingSlot[]
 }
 
-export function innerGroupRing(face: Face, nodes: NodePos[]): RingArcs {
+/** Distance bands (from a face-cluster center) for its 3 concentric circles. */
+const RING_BANDS = {
+  inner: [15, 20] as [number, number], // d ≈ 18
+  middle: [20, 24] as [number, number], // d ≈ 22 (static)
+  outer: [24, 29] as [number, number], // d ≈ 26
+}
+
+/**
+ * Build one ring (inner or outer) around an inner group's cluster center as 12
+ * slots in canonical clockwise order. No per-face arc grouping — a continuous
+ * 0..11 sequence, so a quarter-turn is simply "shift occupants by 3 slots".
+ */
+function buildRing(
+  face: Face,
+  nodes: NodePos[],
+  band: [number, number],
+): Ring {
   const [cx, cy] = faceCenter(face, nodes)
 
-  // Nodes lying on the ring (radius ~17.6 for the current geometry).
   const onRing = nodes
     .map((n) => ({
       n,
       d: Math.hypot(n.x - cx, n.y - cy),
       ang: (Math.atan2(n.y - cy, n.x - cx) * 180) / Math.PI,
     }))
-    .filter((x) => x.d > 15 && x.d < 20)
+    .filter((x) => x.d >= band[0] && x.d < band[1])
 
-  // Normalise angle to [0,360) and sort clockwise. In SVG, +y is down, so
-  // increasing atan2 angle is clockwise on screen.
+  // Clockwise by screen angle (SVG y is down, so increasing atan2 = clockwise).
   for (const x of onRing) if (x.ang < 0) x.ang += 360
   onRing.sort((a, b) => a.ang - b.ang)
 
-  // Group consecutive nodes into arcs by face (each adjacent face contributes a
-  // contiguous run of 3). Preserve clockwise order.
-  const arcsByFace = new Map<Face, number[]>()
-  const faceOrder: Face[] = []
-  for (const x of onRing) {
-    const f = x.n.face
-    if (!arcsByFace.has(f)) {
-      arcsByFace.set(f, [])
-      faceOrder.push(f)
-    }
-    arcsByFace.get(f)!.push(x.n.faceletIndex)
-  }
+  const slots: RingSlot[] = onRing.map((x) => ({
+    faceletIndex: x.n.faceletIndex,
+    x: x.n.x,
+    y: x.n.y,
+    face: x.n.face,
+  }))
 
-  const arcs = faceOrder.map((f) => arcsByFace.get(f)!)
-
-  // Radius = average ring distance.
-  const radius =
-    onRing.reduce((s, x) => s + x.d, 0) / Math.max(1, onRing.length)
-
-  return { center: [cx, cy], radius, arcs }
+  const radius = onRing.reduce((s, x) => s + x.d, 0) / Math.max(1, onRing.length)
+  return { center: [cx, cy], radius, slots }
 }
+
+/**
+ * For an inner group (U/R/F), build its inner and outer rings. The inner ring
+ * is rotated by the group's own move (U); the outer ring is rotated by the
+ * opposite face's move (D) — i.e. U's outer ring IS D's inner ring. The middle
+ * ring is static and not returned.
+ */
+export type GroupRings = { inner: Ring; outer: Ring }
+
+export function innerGroupRings(face: Face, nodes: NodePos[]): GroupRings {
+  return {
+    inner: buildRing(face, nodes, RING_BANDS.inner),
+    outer: buildRing(face, nodes, RING_BANDS.outer),
+  }
+}
+
+/** Slots to shift for one clockwise quarter-turn (12 slots / 4 quarters = 3). */
+export const RING_QUARTER_STEP = 3
 
 export const LAYOUT_VIEWBOX = { size: VIEW }
 export const NODE_RADIUS = 1.8
