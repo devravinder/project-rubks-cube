@@ -167,23 +167,34 @@ export function buildNodeLayout(): NodePos[] {
     }
   })
 
-  // Now assign 54 stickers to these intersection points.
-  // We have exactly 54 intersections (ideally: 3 pairs × 2 sides × 9 radius combos).
-  // Assign faces in order: first 18 from pair 0, next 18 from pair 1, last 18 from pair 2.
+  // Deduplicate: remove stickers that are too close to each other (< 3.5 units).
+  const deduped: typeof intersections = []
+  for (const pt of intersections) {
+    const tooClose = deduped.some(
+      (d) => Math.hypot(d.x - pt.x, d.y - pt.y) < 3.5,
+    )
+    if (!tooClose) deduped.push(pt)
+  }
 
+  // Sort by pair, then groupIdx, then radiusIdx (for deterministic assignment).
+  deduped.sort(
+    (a, b) =>
+      a.pairIdx - b.pairIdx ||
+      a.groupIdx - b.groupIdx ||
+      a.radiusIdx - b.radiusIdx,
+  )
+
+  // Now assign 54 stickers to the deduplicated intersection points.
   const nodes: NodePos[] = []
-  let nodeIdx = 0
 
   adjacentPairs.forEach((pair, pairIdx) => {
     const [g1] = pair
     const [faceA, faceB] = GROUP_FACES[g1]
 
-    // Get intersections for this pair, sorted by groupIdx then radiusIdx
-    const pairIntersections = intersections
-      .filter((pt) => pt.pairIdx === pairIdx)
-      .sort((a, b) => a.groupIdx - b.groupIdx || a.radiusIdx - b.radiusIdx)
+    // Get deduplicated intersections for this pair.
+    const pairIntersections = deduped.filter((pt) => pt.pairIdx === pairIdx)
 
-    // Assign the first 9 to faceA
+    // First 9 to faceA
     for (let local = 0; local < 9 && local < pairIntersections.length; local++) {
       const pt = pairIntersections[local]
       nodes.push({
@@ -194,7 +205,7 @@ export function buildNodeLayout(): NodePos[] {
       })
     }
 
-    // Assign the next 9 to faceB
+    // Next 9 to faceB
     for (let local = 0; local < 9 && local + 9 < pairIntersections.length; local++) {
       const pt = pairIntersections[local + 9]
       nodes.push({
@@ -204,8 +215,6 @@ export function buildNodeLayout(): NodePos[] {
         y: pt.y,
       })
     }
-
-    nodeIdx += Math.min(18, pairIntersections.length)
   })
 
   // Ensure all 54 facelets are covered; fill any gaps with center positions.
