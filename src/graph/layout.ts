@@ -27,9 +27,9 @@ const GROUP_ANGLES = [-90, 30, 150] // degrees
 const GROUP_RADII = [18, MIDDLE_RADIUS, 26]
 
 const GROUP_FACES: Array<[Face, Face]> = [
+  ['F', 'B'],
   ['U', 'D'],
   ['R', 'L'],
-  ['F', 'B'],
 ]
 
 function circleIntersections(
