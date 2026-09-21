@@ -96,84 +96,108 @@ function groupCenter(group: number): [number, number] {
 /**
  * Build fixed positions for all 54 nodes by computing circle-circle intersections.
  *
- * Strategy:
- *  - Compute all pairwise circle intersections (group i, radius r1 vs group j, radius r2).
- *  - Sort and deduplicate the intersection points.
- *  - Assign 54 facelets to intersection points such that each face gets 9 stickers
- *    and they form clear color clusters in the reference pattern.
+ * Strategy (matching frame_00401.png):
+ *  - Compute intersections ONLY between adjacent group pairs: (0,1), (1,2), (2,0).
+ *  - Each pair generates 9 intersection points (3 radii from group A × 3 from group B).
+ *  - Total: 3 pairs × 9 points = 27 unique intersection locations.
+ *  - Assign stickers by alternating faces at different radius levels:
+ *    - Inner radius intersections (r1[0] vs r2[0]): faces at index 0 of their pair.
+ *    - Middle radius: faces at index 1.
+ *    - Outer radius: faces at index 2 or wrap.
+ *  - This spreads 54 stickers across the 27 points (2 stickers per point, one per face of the pair).
  */
 export function buildNodeLayout(): NodePos[] {
-  // Collect all circle-circle intersection points with their metadata.
-  interface IntersectionPt {
+  interface IntersectionData {
     x: number
     y: number
-    groups: Set<number> // which group indices contribute circles to this point
+    pair: number // which pair (0=g0-g1, 1=g1-g2, 2=g2-g0)
+    radiusIdx: number // which radius combination (0..8, representing r1_idx * 3 + r2_idx)
   }
-  const intersections: IntersectionPt[] = []
 
-  // For each pair of groups, find all intersections between their circles.
-  for (let g1 = 0; g1 < 3; g1++) {
-    for (let g2 = g1 + 1; g2 < 3; g2++) {
-      const [c1x, c1y] = groupCenter(g1)
-      const [c2x, c2y] = groupCenter(g2)
-      for (const r1 of GROUP_RADII) {
-        for (const r2 of GROUP_RADII) {
-          const pts = circleIntersections(c1x, c1y, r1, c2x, c2y, r2)
-          for (const [x, y] of pts) {
-            // Avoid duplicates: only add if more than 2 units away from all existing.
-            const isDupe = intersections.some(
-              (p) => Math.hypot(p.x - x, p.y - y) < 1.5,
-            )
-            if (!isDupe) {
-              intersections.push({
-                x,
-                y,
-                groups: new Set([g1, g2]),
-              })
-            }
+  const intersections: IntersectionData[] = []
+
+  // For ADJACENT groups only: (0,1), (1,2), (2,0)
+  const adjacentPairs: Array<[number, number]> = [
+    [0, 1],
+    [1, 2],
+    [2, 0],
+  ]
+
+  adjacentPairs.forEach((pair, pairIdx) => {
+    const [g1, g2] = pair
+    const [c1x, c1y] = groupCenter(g1)
+    const [c2x, c2y] = groupCenter(g2)
+
+    // Compute all 9 intersections (3×3 radius combinations)
+    let radiusIdx = 0
+    for (let r1Idx = 0; r1Idx < 3; r1Idx++) {
+      for (let r2Idx = 0; r2Idx < 3; r2Idx++) {
+        const r1 = GROUP_RADII[r1Idx]
+        const r2 = GROUP_RADII[r2Idx]
+        const pts = circleIntersections(c1x, c1y, r1, c2x, c2y, r2)
+
+        // Take the first intersection point (or closest to the midpoint between groups).
+        if (pts.length > 0) {
+          let bestPt = pts[0]
+          // If there are 2 intersection points, prefer the one closer to the midline.
+          if (pts.length === 2) {
+            const mid = Math.atan2(c2y - c1y, c2x - c1x)
+            const ang0 = Math.atan2(pts[0][1] - CENTER, pts[0][0] - CENTER) - mid
+            const ang1 = Math.atan2(pts[1][1] - CENTER, pts[1][0] - CENTER) - mid
+            bestPt = Math.abs(ang0) < Math.abs(ang1) ? pts[0] : pts[1]
           }
+
+          intersections.push({
+            x: bestPt[0],
+            y: bestPt[1],
+            pair: pairIdx,
+            radiusIdx,
+          })
         }
+        radiusIdx++
       }
     }
-  }
-
-  // Sort intersections by angle and distance from center (for deterministic ordering).
-  intersections.sort((a, b) => {
-    const rad_a = Math.hypot(a.x - CENTER, a.y - CENTER)
-    const ang_a = Math.atan2(a.y - CENTER, a.x - CENTER)
-    const rad_b = Math.hypot(b.x - CENTER, b.y - CENTER)
-    const ang_b = Math.atan2(b.y - CENTER, b.x - CENTER)
-    return rad_a - rad_b || ang_a - ang_b
   })
 
-  // Assign 54 facelets to the first 54 intersections, grouped by face.
-  // Pattern: 3 groups × 2 faces per group × 9 stickers per face = 54.
+  // Now assign 54 stickers to these intersection points.
+  // Each pair has 2 faces; each intersection gets one sticker per face.
+  // Local indices (0..8): spread across the 9 radius combinations per pair.
   const nodes: NodePos[] = []
-  let idx = 0
 
-  for (let g = 0; g < 3; g++) {
-    const [faceA, faceB] = GROUP_FACES[g]
-    // Use 18 points for this group (9 per face).
-    // First 9 go to faceA, next 9 to faceB.
-    for (let f = 0; f < 2; f++) {
-      const face = f === 0 ? faceA : faceB
-      for (let local = 0; local < 9; local++) {
-        if (idx < intersections.length) {
-          const pt = intersections[idx]
-          nodes.push({
-            faceletIndex: FACE_OFFSET[face] + local,
-            face,
-            x: pt.x,
-            y: pt.y,
-          })
-          idx++
-        }
-      }
+  adjacentPairs.forEach((pair, pairIdx) => {
+    const [g1, g2] = pair
+    const [faceA, faceB] = GROUP_FACES[g1]
+    const [faceC, faceD] = GROUP_FACES[g2]
+
+    // Intersections for this pair
+    const pairIntersections = intersections.filter((pt) => pt.pair === pairIdx)
+
+    // First 9 stickers (faceA): local 0..8
+    for (let local = 0; local < 9 && local < pairIntersections.length; local++) {
+      const pt = pairIntersections[local]
+      nodes.push({
+        faceletIndex: FACE_OFFSET[faceA] + local,
+        face: faceA,
+        x: pt.x,
+        y: pt.y,
+      })
     }
-  }
 
-  // Fallback: if not enough intersections (should not happen with good geometry),
-  // fill remaining facelets with default positions at center.
+    // Second 9 stickers (faceB): local 0..8
+    for (let local = 0; local < 9 && local < pairIntersections.length; local++) {
+      const pt = pairIntersections[local]
+      nodes.push({
+        faceletIndex: FACE_OFFSET[faceB] + local,
+        face: faceB,
+        x: pt.x,
+        y: pt.y,
+      })
+    }
+
+    // (faceC and faceD are handled by the next pair iteration, due to cyclic pairs)
+  })
+
+  // Ensure all 54 facelets are covered; fill any gaps with center positions.
   for (const face of FACES) {
     for (let local = 0; local < 9; local++) {
       const faceletIdx = FACE_OFFSET[face] + local
