@@ -133,11 +133,12 @@ export function buildNodeLayout(): NodePos[] {
     let norm = angle
     if (norm < 0) norm += 2 * Math.PI
     
-    // Divide into 6 regions of 60° each
-    const regionAngle = (norm / (2 * Math.PI)) * 6
+    // Divide into 6 regions of 60° each, with offsets to avoid boundary issues
+    // Offset by 30° to center region boundaries in "gaps" between face clusters
+    const regionAngle = ((norm + Math.PI / 6) / (2 * Math.PI)) * 6
     const region = Math.floor(regionAngle) % 6
     
-    // Map regions to faces (remapped)
+    // Map regions to faces (remapped): R, D, F, L, U, B
     const faces: Face[] = ['R', 'D', 'F', 'L', 'U', 'B']
     return faces[region]
   }
