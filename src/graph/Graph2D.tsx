@@ -123,7 +123,7 @@ export function Graph2D() {
         {(Object.entries(faceLabelPositions) as Array<[Face, { x: number; y: number } | null]>).map(
           ([face, pos]) =>
             pos && (
-              <text key={`label-${face}`} x={pos.x} y={pos.y}>
+              <text key={`label-${face}`} x={pos.x} y={pos.y} dy="0.1em">
                 {face}
               </text>
             ),
