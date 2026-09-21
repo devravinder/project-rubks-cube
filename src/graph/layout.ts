@@ -25,7 +25,7 @@ const CENTER = VIEW / 2
 const MIDDLE_RADIUS = 22
 const CIRCLE_DISTANCE = MIDDLE_RADIUS / Math.sqrt(3) // ≈ 12.7
 const GROUP_ANGLES = [-90, 30, 150]
-const GROUP_RADII = [16, MIDDLE_RADIUS, 28]
+const GROUP_RADII = [18, MIDDLE_RADIUS, 26]
 
 const GROUP_FACES: Array<[Face, Face]> = [
   ['U', 'D'],
@@ -133,14 +133,22 @@ export function buildNodeLayout(): NodePos[] {
   // Region 5 (-150 to -90): F
   
   const faceForAngle = (angle: number): Face => {
-    const normalized = angle < 0 ? angle + 2 * Math.PI : angle
-    const region = Math.floor((normalized / (2 * Math.PI)) * 6) % 6
-    const faces: Face[] = ['U', 'R', 'D', 'L', 'B', 'F']
+    // Normalize angle to [0, 2π]
+    let norm = angle
+    if (norm < 0) norm += 2 * Math.PI
+    
+    // Divide into 6 regions of 60° each
+    // Offset by 30° so boundaries are at ±30°, 90°, 150°, ±150°, -90°
+    const regionAngle = ((norm + Math.PI / 6) % (2 * Math.PI)) / (Math.PI / 3)
+    const region = Math.floor(regionAngle) % 6
+    
+    // Map regions to faces (adjusted for the reference layout)
+    const faces: Face[] = ['R', 'D', 'L', 'B', 'U', 'F']
     return faces[region]
   }
 
   const nodes: NodePos[] = []
-  const faceStickers: Record<Face, NodePos[]> = {
+  const faceStickers: Record<Face, Array<{ x: number; y: number }>> = {
     U: [],
     D: [],
     R: [],
@@ -149,18 +157,13 @@ export function buildNodeLayout(): NodePos[] {
     B: [],
   }
 
-  // Assign deduplicated points to faces by angle
+  // Assign deduplicated intersection points to faces by angle, preserving coordinates
   for (const pt of deduped) {
     const face = faceForAngle(pt.angle)
-    faceStickers[face].push({
-      faceletIndex: -1, // placeholder
-      face,
-      x: pt.x,
-      y: pt.y,
-    })
+    faceStickers[face].push({ x: pt.x, y: pt.y })
   }
 
-  // Now map each face's stickers to local indices 0..8
+  // Now map each face's stickers to local indices 0..8, using exact coordinates
   for (const face of FACES) {
     const stickers = faceStickers[face]
     for (let local = 0; local < 9 && local < stickers.length; local++) {
