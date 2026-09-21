@@ -110,11 +110,11 @@ export function Graph2D() {
       </g>
 
       {/* Face labels at the centroid of each face cluster. */}
-      <g className="text-foreground" fontSize="3" fontWeight="bold" textAnchor="middle">
+      <g className="text-foreground" fontSize="3" fontWeight="bold" textAnchor="middle" dominantBaseline="central">
         {(Object.entries(faceLabelPositions) as Array<[Face, { x: number; y: number } | null]>).map(
           ([face, pos]) =>
             pos && (
-              <text key={`label-${face}`} x={pos.x} y={pos.y} dy="0.3em">
+              <text key={`label-${face}`} x={pos.x} y={pos.y}>
                 {face}
               </text>
             ),
