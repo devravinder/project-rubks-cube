@@ -123,14 +123,14 @@ export function buildNodeLayout(): NodePos[] {
   deduped.sort((a, b) => a.angle - b.angle)
 
   // Assign to faces based on angular regions
-  // 6 faces, so divide the circle into 6 regions of ~60 degrees each
-  // Map angle regions to faces:
-  // Region 0 (top, -90 to -30): U
-  // Region 1 (-30 to 30): R
-  // Region 2 (30 to 90): D
-  // Region 3 (90 to 150): L
-  // Region 4 (150 to -150): B
-  // Region 5 (-150 to -90): F
+  // Looking down from above: U is up, F is forward (top-right), R is right
+  // Divide circle into 6 regions of 60° each, starting at -90° (left, which is -X or L face)
+  // -90° to -30°: L (left)
+  // -30° to 30°: R (right)  
+  // 30° to 90°: F (front, top-right when viewed from camera angle)
+  // 90° to 150°: U (up, top)
+  // 150° to -150°: B (back)
+  // -150° to -90°: D (down, bottom)
   
   const faceForAngle = (angle: number): Face => {
     // Normalize angle to [0, 2π]
@@ -138,12 +138,11 @@ export function buildNodeLayout(): NodePos[] {
     if (norm < 0) norm += 2 * Math.PI
     
     // Divide into 6 regions of 60° each
-    // Offset by 30° so boundaries are at ±30°, 90°, 150°, ±150°, -90°
-    const regionAngle = ((norm + Math.PI / 6) % (2 * Math.PI)) / (Math.PI / 3)
+    const regionAngle = (norm / (2 * Math.PI)) * 6
     const region = Math.floor(regionAngle) % 6
     
-    // Map regions to faces (adjusted for the reference layout)
-    const faces: Face[] = ['R', 'D', 'L', 'B', 'U', 'F']
+    // Map regions to faces based on angle regions
+    const faces: Face[] = ['R', 'F', 'U', 'B', 'L', 'D']
     return faces[region]
   }
 
