@@ -63,7 +63,16 @@ export function Graph2D() {
       if (faceNodes.length > 0) {
         const cx = faceNodes.reduce((s, n) => s + n.x, 0) / faceNodes.length
         const cy = faceNodes.reduce((s, n) => s + n.y, 0) / faceNodes.length
-        positions[face] = { x: cx, y: cy }
+        let closest = faceNodes[0]
+        let minDist = Math.hypot(closest.x - cx, closest.y - cy)
+        for (const node of faceNodes) {
+          const dist = Math.hypot(node.x - cx, node.y - cy)
+          if (dist < minDist) {
+            minDist = dist
+            closest = node
+          }
+        }
+        positions[face] = { x: closest.x, y: closest.y }
       }
     }
     return positions
@@ -110,7 +119,7 @@ export function Graph2D() {
       </g>
 
       {/* Face labels at the centroid of each face cluster. */}
-      <g className="text-foreground" fontSize="3" fontWeight="bold" textAnchor="middle" alignmentBaseline="middle">
+      <g className="text-foreground" fontSize="3" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
         {(Object.entries(faceLabelPositions) as Array<[Face, { x: number; y: number } | null]>).map(
           ([face, pos]) =>
             pos && (
