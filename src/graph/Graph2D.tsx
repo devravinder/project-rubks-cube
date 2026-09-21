@@ -48,6 +48,27 @@ export function Graph2D() {
 
   const size = LAYOUT_VIEWBOX.size
 
+  // Compute face cluster centers for debugging labels
+  const faceCenters = useMemo(() => {
+    const centers: Record<Face, { x: number; y: number } | null> = {
+      U: null,
+      D: null,
+      R: null,
+      L: null,
+      F: null,
+      B: null,
+    }
+    for (const face of ['U', 'D', 'R', 'L', 'F', 'B'] as const) {
+      const faceNodes = nodes.filter((n) => n.face === face)
+      if (faceNodes.length > 0) {
+        const cx = faceNodes.reduce((s, n) => s + n.x, 0) / faceNodes.length
+        const cy = faceNodes.reduce((s, n) => s + n.y, 0) / faceNodes.length
+        centers[face] = { x: cx, y: cy }
+      }
+    }
+    return centers
+  }, [nodes])
+
   return (
     <svg
       viewBox={`0 0 ${size} ${size}`}
@@ -86,6 +107,18 @@ export function Graph2D() {
             onPointerDown={onPointerDown(node)}
           />
         ))}
+      </g>
+
+      {/* Face labels at cluster centers (for debugging). */}
+      <g className="text-foreground" fontSize="4" fontWeight="bold" textAnchor="middle">
+        {(Object.entries(faceCenters) as Array<[Face, { x: number; y: number } | null]>).map(
+          ([face, center]) =>
+            center && (
+              <text key={`label-${face}`} x={center.x} y={center.y} dy="0.35em">
+                {face}
+              </text>
+            ),
+        )}
       </g>
     </svg>
   )
