@@ -59,7 +59,12 @@ export function Graph2D() {
     const isInner = INNER_GROUPS.includes(face)
     const ownerFace = isInner ? face : OPPOSITE_FACE[face]
     const band = isInner ? 'inner' : 'outer'
-    const dir = move.includes("'") ? -1 : 1 // CW = +, CCW = -
+    const prime = move.includes("'")
+    // Inner group (U/R/F): base = clockwise (+), prime = counter-clockwise (-).
+    // Outer group (D/L/B): direction is INVERTED — a base move rotates the
+    // opposite's OUTER ring counter-clockwise, and prime rotates it clockwise.
+    let dir = prime ? -1 : 1
+    if (!isInner) dir = -dir
     const quarters = move.includes('2') ? 2 : 1
     return { key: `${ownerFace}:${band}`, dir, quarters }
   }
