@@ -1,4 +1,3 @@
-import { Button } from './Button'
 import { useCubeStore } from '../store/cubeStore'
 import { ALL_BASE_MOVES, invertMove, type MoveName } from '../cube/moves'
 

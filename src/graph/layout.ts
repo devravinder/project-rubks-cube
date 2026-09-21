@@ -175,9 +175,8 @@ export function buildNodeLayout(): NodePos[] {
   let nodeIdx = 0
 
   adjacentPairs.forEach((pair, pairIdx) => {
-    const [g1, g2] = pair
+    const [g1] = pair
     const [faceA, faceB] = GROUP_FACES[g1]
-    const [faceC, faceD] = GROUP_FACES[g2]
 
     // Get intersections for this pair, sorted by groupIdx then radiusIdx
     const pairIntersections = intersections

@@ -12,14 +12,6 @@ import type { Vec3 } from './geometry'
  * spin sign) to a standard move.
  */
 
-/** The rotation axis of each face move and which coordinate/value it fixes. */
-type AxisInfo = {
-  axis: 'x' | 'y' | 'z'
-  /** The coordinate value of the layer that this face's move rotates. */
-  layer: number
-  /** Move for a positive (right-hand rule about +axis) turn... resolved per face. */
-}
-
 /** Standard face for a given axis + layer coordinate. */
 const FACE_FOR_AXIS_LAYER: Record<'x' | 'y' | 'z', Record<number, Face>> = {
   x: { 1: 'R', [-1]: 'L' },
