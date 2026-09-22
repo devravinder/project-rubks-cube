@@ -6,8 +6,6 @@ export function Controls() {
   const scramble = useCubeStore((s) => s.scramble)
   const reset = useCubeStore((s) => s.reset)
   const undo = useCubeStore((s) => s.undo)
-  const solved = useCubeStore((s) => s.solved)
-  console.log({solved})
   const historyLength = useCubeStore((s) => s.history.length)
 
   return (
