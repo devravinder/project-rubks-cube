@@ -1,10 +1,11 @@
 import { useRef } from 'react'
 import { CubeScene } from '../three/CubeScene'
+import { HintPanel } from './HintPanel'
 
 /**
  * Container for the 3D cube view. Fills its parent section and hosts the
  * React Three Fiber canvas. Shows a reset button (top-right) that restores
- * the default camera orientation.
+ * the default camera orientation, and a hint button (bottom-right).
  */
 export function CubePanel() {
   const resetCameraRef = useRef<(() => void) | null>(null)
@@ -26,6 +27,9 @@ export function CubePanel() {
       >
         Reset view
       </button>
+
+      {/* Bottom-right: solution hint */}
+      <HintPanel />
     </div>
   )
 }

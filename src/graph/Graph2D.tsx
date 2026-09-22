@@ -7,8 +7,6 @@ import {
   guideCircles,
   innerGroupRings,
   INNER_GROUPS,
-  OPPOSITE_FACE,
-  RING_QUARTER_STEP,
   LAYOUT_VIEWBOX,
   NODE_RADIUS,
   type NodePos,
@@ -20,24 +18,21 @@ type XY = { x: number; y: number }
 const RING_KEYS = INNER_GROUPS.flatMap((f) => [`${f}:inner`, `${f}:outer`])
 
 /**
- * The 2D graph/mandala view. Colored by home face (decoupled from cube state).
+ * The 2D graph/mandala view. Sticker POSITIONS are fixed; each sticker's COLOR
+ * is read from the live cube state (`state[faceletIndex]`), so the 2D view is a
+ * faithful mirror of the 3D cube — solved cube ⇒ every cluster uniform.
  *
- * Rotation model (canonical 12-slot + history-derived offset):
- *  - Each inner group (U/R/F) has an INNER and OUTER ring; each is 12 slots
- *    ordered clockwise (0..11). The MIDDLE ring is static.
- *  - A quarter-turn shifts a ring's occupants by 3 slots (12/4). CW = +3, CCW = -3.
- *  - Inner-group move (U) rotates its INNER ring; the opposite face (D) rotates
- *    the OUTER ring (U's outer == D's inner).
- *  - Per-ring offset is derived by folding the move HISTORY, so the 2D view
- *    survives refresh with no extra storage and always matches the cube.
+ * The circles are still interactive: dragging a sticker around a ring applies
+ * the corresponding cube move (the ring geometry only drives gesture→move
+ * detection; it no longer moves stickers on its own).
  */
 export function Graph2D() {
   const applyMove = useCubeStore((s) => s.applyMove)
-  const history = useCubeStore((s) => s.history)
+  const state = useCubeStore((s) => s.state)
   const nodes = useMemo(() => buildNodeLayout(), [])
   const circles = useMemo(() => guideCircles(), [])
 
-  // Build the 6 rings (U/R/F × inner/outer), each 12 canonical slots.
+  // Build the 6 rings (U/R/F × inner/outer) — used only for gesture detection.
   const ringByKey = useMemo(() => {
     const map: Record<string, Ring> = {}
     for (const f of INNER_GROUPS) {
@@ -47,81 +42,6 @@ export function Graph2D() {
     }
     return map
   }, [nodes])
-
-  // Which ring key + direction a move affects. Inner group -> its inner ring;
-  // outer group -> its opposite inner group's outer ring.
-  const ringKeyForMove = (
-    move: string,
-  ): { key: string; dir: number; quarters: number } => {
-    const face = move[0] as Face
-    const isInner = INNER_GROUPS.includes(face)
-    const ownerFace = isInner ? face : OPPOSITE_FACE[face]
-    const band = isInner ? 'inner' : 'outer'
-    const prime = move.includes("'")
-    // Inner group (U/R/F): base = clockwise (+), prime = counter-clockwise (-).
-    // Outer group (D/L/B): direction is INVERTED — a base move rotates the
-    // opposite's OUTER ring counter-clockwise, and prime rotates it clockwise.
-    let dir = prime ? -1 : 1
-    if (!isInner) dir = -dir
-    const quarters = move.includes('2') ? 2 : 1
-    return { key: `${ownerFace}:${band}`, dir, quarters }
-  }
-
-  // Derive each sticker's render position by REPLAYING the move history.
-  //
-  // Positions (screen coords) are the stable entities; stickers flow between
-  // them. `occupantAt[posIdx]` = the facelet id currently shown at that slot.
-  // Rings share positions (a sticker can belong to several rings), so we must
-  // replay moves in order: each move cycles its ring's 12 slots by 3, carrying
-  // whatever sticker currently sits there. A per-ring offset would be wrong
-  // because shared stickers would be double-counted.
-  const { renderPos } = useMemo(() => {
-    // Stable position list: each node's home (x,y) is one position, indexed by
-    // faceletIndex (unique). posOf[id] = home coordinate of that slot.
-    const posOf: Record<number, XY> = {}
-    for (const n of nodes) posOf[n.faceletIndex] = { x: n.x, y: n.y }
-
-    // occupant[slotId] = faceletId currently displayed at that slot. Start = identity.
-    const occupant: Record<number, number> = {}
-    for (const n of nodes) occupant[n.faceletIndex] = n.faceletIndex
-
-    // Each ring is an ordered list of 12 slot ids (faceletIndex of the slot).
-    const ringSlotIds: Record<string, number[]> = {}
-    for (const key of RING_KEYS) {
-      const ring = ringByKey[key]
-      ringSlotIds[key] = ring ? ring.slots.map((s) => s.faceletIndex) : []
-    }
-
-    // Rotate one ring by `steps` slots (positive = clockwise/+). Moves the
-    // occupant currently at slot i to slot (i+steps) mod 12.
-    const rotate = (key: string, steps: number) => {
-      const slotIds = ringSlotIds[key]
-      const n = slotIds.length
-      if (n !== 12) return
-      const shift = ((steps % n) + n) % n
-      if (shift === 0) return
-      const current = slotIds.map((sid) => occupant[sid])
-      for (let i = 0; i < n; i++) {
-        occupant[slotIds[(i + shift) % n]] = current[i]
-      }
-    }
-
-    // Replay history in order.
-    for (const move of history) {
-      const { key, dir, quarters } = ringKeyForMove(move)
-      rotate(key, dir * quarters * RING_QUARTER_STEP)
-    }
-
-    // Render position for each sticker = the position of the slot it occupies.
-    // occupant[slotId] = stickerId  =>  sticker `stickerId` renders at posOf[slotId].
-    const renderPos: Record<number, XY> = { ...posOf }
-    for (const slotId of Object.keys(occupant).map(Number)) {
-      const stickerId = occupant[slotId]
-      renderPos[stickerId] = posOf[slotId]
-    }
-    return { renderPos }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history, ringByKey, nodes])
 
   // For each ring, the center (pivot) and the set of slot facelet-ids on it.
   const ringInfo = useMemo(() => {
@@ -139,11 +59,9 @@ export function Graph2D() {
 
   // Reverse map: given the ring that was dragged and the visual sweep direction
   // (cw = clockwise), return the move to apply.
-  //
-  // Inner rings are owned by U/R/F: cw => base move, ccw => prime.
-  // Outer rings are driven by the OPPOSITE outer face (D/L/B) with INVERTED
-  // direction (matches the display model): on an outer ring, cw => prime of the
-  // driver, ccw => base of the driver.
+  //  - Inner rings owned by U/R/F: cw => base move, ccw => prime.
+  //  - Outer rings driven by the OPPOSITE outer face (D/L/B) with INVERTED
+  //    direction: cw => prime of the driver, ccw => base of the driver.
   const RING_OWNER: Record<string, { inner: Face; outer: Face }> = {
     'U:inner': { inner: 'U', outer: 'D' },
     'U:outer': { inner: 'U', outer: 'D' },
@@ -157,11 +75,8 @@ export function Graph2D() {
     const owner = RING_OWNER[key]
     if (!owner) return null
     if (key.endsWith(':inner')) {
-      // Owned by inner face: cw => base, ccw => prime.
       return (cw ? owner.inner : `${owner.inner}'`) as MoveName
     }
-    // Outer ring: driven by the outer face with inverted direction.
-    // cw => prime of driver, ccw => base of driver.
     return (cw ? `${owner.outer}'` : owner.outer) as MoveName
   }
 
@@ -203,8 +118,7 @@ export function Graph2D() {
     )
     if (candidates.length === 0) return
 
-    // Choose the ring the user is tracing: the one whose center the grabbed
-    // sticker orbits and where the drag produces the largest clean sweep.
+    // Choose the ring the user is tracing: largest clean sweep around a center.
     let best: { key: string; sweep: number } | null = null
     for (const key of candidates) {
       const [cx, cy] = ringInfo[key].center
@@ -284,25 +198,22 @@ export function Graph2D() {
         ))}
       </g>
 
-      {/* Sticker nodes. Colored by their HOME face (frozen); positioned by the
-          live 2D permutation (renderPos), which ring rotations mutate. */}
+      {/* Sticker nodes at FIXED positions, colored from the live cube state so
+          the 2D view faithfully mirrors the 3D cube (solved ⇒ uniform clusters). */}
       <g>
-        {nodes.map((node) => {
-          const p = renderPos[node.faceletIndex] ?? { x: node.x, y: node.y }
-          return (
-            <circle
-              key={node.faceletIndex}
-              cx={p.x}
-              cy={p.y}
-              r={NODE_RADIUS}
-              fill={FACE_COLOR[node.face]}
-              stroke="rgba(0,0,0,0.4)"
-              strokeWidth={0.25}
-              className="cursor-grab touch-none"
-              onPointerDown={onPointerDown(node)}
-            />
-          )
-        })}
+        {nodes.map((node) => (
+          <circle
+            key={node.faceletIndex}
+            cx={node.x}
+            cy={node.y}
+            r={NODE_RADIUS}
+            fill={FACE_COLOR[state[node.faceletIndex] as Face]}
+            stroke="rgba(0,0,0,0.4)"
+            strokeWidth={0.25}
+            className="cursor-grab touch-none"
+            onPointerDown={onPointerDown(node)}
+          />
+        ))}
       </g>
 
       {/* Face labels at the centroid of each face cluster. */}
