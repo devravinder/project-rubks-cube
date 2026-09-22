@@ -7,6 +7,7 @@ export function Controls() {
   const reset = useCubeStore((s) => s.reset)
   const undo = useCubeStore((s) => s.undo)
   const solved = useCubeStore((s) => s.solved)
+  console.log({solved})
   const historyLength = useCubeStore((s) => s.history.length)
 
   return (
@@ -26,7 +27,7 @@ export function Controls() {
       <Button
         variant="ghost"
         onClick={reset}
-        disabled={solved}
+        disabled={historyLength === 0}
         title="Reset to solved"
         className="px-2"
       >
