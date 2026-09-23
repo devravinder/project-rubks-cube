@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 import { solvedState, isSolved, type CubeState } from '../cube/facelet'
 import {
   applyMove,
@@ -55,15 +55,7 @@ export const useCubeStore = create<CubeStore>()(
     {
       name: 'rubiks-cube-state',
       version: 1,
-      storage: createJSONStorage(() => localStorage),
-      // Persist only the move history; it fully determines the cube. The
-      // sticker state and solved flag are recomputed from it on load, so the
-      // stored payload stays small and self-heals if the state array is ever
-      // out of sync. All actions (moves, scramble, reset, undo) mutate history
-      // through the store, so each is captured automatically.
       partialize: (s) => ({ history: s.history }),
-      // After the persisted history is rehydrated, replay it from the solved
-      // state to rebuild `state` and `solved`.
       onRehydrateStorage: () => (persisted) => {
         if (!persisted) return
         const rebuilt = applyMoves(solvedState(), persisted.history)
