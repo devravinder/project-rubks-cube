@@ -18,13 +18,13 @@ const GUIDE_CIRCLES: Array<GuideCircle> = [
   { cx: 35.15, cy: 64.57, r: 35.1 },
 ]
 
-type NodePos = { faceletIndex: number; x: number; y: number; face: Face }
+type NodePos = { faceletIndex: number; x: number; y: number; face: Face, label?: string }
 const INITIAL_NODES: NodePos[] = [
   { faceletIndex: 0, face: 'U', x: 50, y: 45.34 },
   { faceletIndex: 1, face: 'U', x: 54.91, y: 42.4 },
   { faceletIndex: 2, face: 'U', x: 60.8, y: 40.61 },
   { faceletIndex: 3, face: 'U', x: 45.09, y: 42.4 },
-  { faceletIndex: 4, face: 'U', x: 50, y: 38.85 },
+  { faceletIndex: 4, face: 'U', x: 50, y: 38.85, label : 'U' },
   { faceletIndex: 5, face: 'U', x: 55.89, y: 36.26 },
   { faceletIndex: 6, face: 'U', x: 39.2, y: 40.61 },
   { faceletIndex: 7, face: 'U', x: 44.11, y: 36.26 },
@@ -33,7 +33,7 @@ const INITIAL_NODES: NodePos[] = [
   { faceletIndex: 10, face: 'R', x: 59.32, y: 67.05 },
   { faceletIndex: 11, face: 'R', x: 57.93, y: 73.05 },
   { faceletIndex: 12, face: 'R', x: 64.23, y: 58.55 },
-  { faceletIndex: 13, face: 'R', x: 64.85, y: 64.57 },
+  { faceletIndex: 13, face: 'R', x: 64.85, y: 64.57, label:'R' },
   { faceletIndex: 14, face: 'R', x: 64.15, y: 70.97 },
   { faceletIndex: 15, face: 'R', x: 68.73, y: 54.34 },
   { faceletIndex: 16, face: 'R', x: 70.04, y: 60.77 },
@@ -42,7 +42,7 @@ const INITIAL_NODES: NodePos[] = [
   { faceletIndex: 19, face: 'F', x: 35.77, y: 58.55 },
   { faceletIndex: 20, face: 'F', x: 31.27, y: 54.34 },
   { faceletIndex: 21, face: 'F', x: 40.68, y: 67.05 },
-  { faceletIndex: 22, face: 'F', x: 35.15, y: 64.57 },
+  { faceletIndex: 22, face: 'F', x: 35.15, y: 64.57, label:'F' },
   { faceletIndex: 23, face: 'F', x: 29.96, y: 60.77 },
   { faceletIndex: 24, face: 'F', x: 42.07, y: 73.05 },
   { faceletIndex: 25, face: 'F', x: 35.85, y: 70.97 },
@@ -51,7 +51,7 @@ const INITIAL_NODES: NodePos[] = [
   { faceletIndex: 28, face: 'D', x: 45.09, y: 86.75 },
   { faceletIndex: 29, face: 'D', x: 39.2, y: 88.53 },
   { faceletIndex: 30, face: 'D', x: 54.91, y: 86.75 },
-  { faceletIndex: 31, face: 'D', x: 50, y: 90.29 },
+  { faceletIndex: 31, face: 'D', x: 50, y: 90.29, label:'D' },
   { faceletIndex: 32, face: 'D', x: 44.11, y: 92.89 },
   { faceletIndex: 33, face: 'D', x: 60.8, y: 88.53 },
   { faceletIndex: 34, face: 'D', x: 55.89, y: 92.89 },
@@ -60,7 +60,7 @@ const INITIAL_NODES: NodePos[] = [
   { faceletIndex: 37, face: 'L', x: 25.83, y: 36.37 },
   { faceletIndex: 38, face: 'L', x: 27.22, y: 30.38 },
   { faceletIndex: 39, face: 'L', x: 20.92, y: 44.88 },
-  { faceletIndex: 40, face: 'L', x: 20.3, y: 38.85 },
+  { faceletIndex: 40, face: 'L', x: 20.3, y: 38.85, label:'L' },
   { faceletIndex: 41, face: 'L', x: 21, y: 32.45 },
   { faceletIndex: 42, face: 'L', x: 16.42, y: 49.09 },
   { faceletIndex: 43, face: 'L', x: 15.11, y: 42.66 },
@@ -69,7 +69,7 @@ const INITIAL_NODES: NodePos[] = [
   { faceletIndex: 46, face: 'B', x: 79.08, y: 44.88 },
   { faceletIndex: 47, face: 'B', x: 83.58, y: 49.09 },
   { faceletIndex: 48, face: 'B', x: 74.17, y: 36.37 },
-  { faceletIndex: 49, face: 'B', x: 79.7, y: 38.85 },
+  { faceletIndex: 49, face: 'B', x: 79.7, y: 38.85, label:'B' },
   { faceletIndex: 50, face: 'B', x: 84.89, y: 42.66 },
   { faceletIndex: 51, face: 'B', x: 72.78, y: 30.38 },
   { faceletIndex: 52, face: 'B', x: 79, y: 32.45 },
@@ -313,13 +313,14 @@ export function Graph2D() {
                 x={node.x}
                 y={node.y}
                 dy="0.1em"
-                fontSize="2"
+                fontSize="3"
                 fontWeight="bold"
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fill="rgba(0,0,0,0.7)"
               >
-                {node.faceletIndex}
+                {node.label}
+                {/* {node.faceletIndex} // use this while debugging */}
               </text>
             </g>
           )

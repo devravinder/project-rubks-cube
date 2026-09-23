@@ -12,9 +12,7 @@ export function Controls() {
   const historyLength = useCubeStore((s) => s.history.length)
 
   const scramble = async()=>{
-    // applyMove('L2')
-    // return
-      for(let i=0; i < 10 ; i++){
+      for(let i=0; i < 20 ; i++){
         const move = randomMove() as MoveName
         console.log(move)
         applyMove(move)
