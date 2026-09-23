@@ -250,7 +250,7 @@ export function Graph2D() {
     }
   }
 
-  const rotateCircle = (move: MoveName) => {
+  const applyMove = (move: MoveName) => {
     const newNodes = applyMoveToNodes(move, nodes);
     setNodes([...newNodes])
 
@@ -259,7 +259,7 @@ export function Graph2D() {
   const lastMove = useCubeStore((s) => s.lastMove)
   useEffect(() => {
     if (!lastMove) return
-    rotateCircle(lastMove.move)
+    applyMove(lastMove.move)
   }, [lastMove])
 
   return (
