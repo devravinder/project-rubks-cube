@@ -28,10 +28,6 @@ export const FACE_OFFSET: Record<Face, number> = {
   B: 45,
 }
 
-/**
- * Solved-state color per face. A facelet's "color" is stored as the face
- * letter whose center it matches; rendering maps letters -> actual colors.
- */
 export const FACE_COLOR: Record<Face, string> = {
   U: '#ffffff', // white
   R: '#ff0000', // red
