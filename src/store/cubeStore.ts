@@ -4,36 +4,24 @@ import { solvedState, isSolved, type CubeState } from '../cube/facelet'
 import {
   applyMove,
   applyMoves,
-  randomScramble,
   type MoveName,
 } from '../cube/moves'
 
 type CubeStore = {
   /** The single source of truth: 54 facelet colors. Both the 3D and 2D views read this. */
   state: CubeState
-  /** History of applied moves (for undo / display). */
   history: MoveName[]
-  /** Whether the cube is currently solved. */
   solved: boolean
-  /**
-   * The most recent single move plus a monotonic sequence number. The 2D graph
-   * subscribes to this to drive its own circle rotation independently of the
-   * cube state. `seq` increments on every applyMove so repeated identical moves
-   * (e.g. U then U) are still detected as distinct triggers. Null until first move.
-   */
   lastMove: { move: MoveName; seq: number } | null
 
-  /** Apply a single move and record it. */
   applyMove: (move: MoveName) => void
-  /** Apply several moves at once (e.g. a scramble or solution). */
-  applyMoves: (moves: MoveName[]) => void
-  /** Scramble the cube with a random sequence. */
-  scramble: (length?: number) => MoveName[]
-  /** Reset to the solved state. */
   reset: () => void
-  /** Undo the last move. */
   undo: () => void
 }
+
+export const allMoves = ['U', "U'", 'U2', 'R', "R'", 'R2', 'F', "F'", 'F2', 'D', "D'", 'D2', 'L', "L'", 'L2', 'B', "B'", 'B2']
+
+export const randomMove=()=> allMoves[ Math.floor(Math.random() * allMoves.length)]
 
 export const useCubeStore = create<CubeStore>()(
   persist(
@@ -53,30 +41,6 @@ export const useCubeStore = create<CubeStore>()(
             lastMove: { move, seq: (s.lastMove?.seq ?? 0) + 1 },
           }
         }),
-
-      applyMoves: (moves) =>
-        set((s) => {
-          const next = applyMoves(s.state, moves)
-          return {
-            state: next,
-            history: [...s.history, ...moves],
-            solved: isSolved(next),
-          }
-        }),
-
-      scramble: (length = 25) => {
-        const moves = randomScramble(length)
-        set((s) => {
-          const next = applyMoves(s.state, moves)
-          return {
-            state: next,
-            history: [...s.history, ...moves],
-            solved: isSolved(next),
-          }
-        })
-        return moves
-      },
-
       reset: () => set({ state: solvedState(), history: [], solved: true }),
 
       undo: () => {

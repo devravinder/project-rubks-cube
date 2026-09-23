@@ -80,137 +80,179 @@ const INITIAL_NODES: NodePos[] = [
 const NODE_RADIUS = 2.4
 const VIEW_SIZE = 100
 
-const ROTATION_CIRCLES ={
+const ROTATION_CIRCLES = {
   // initial nodes indices
   'U': {
-    'INNER':[
-       51, 48, 45,
-       15, 12, 9,
-       18, 19, 20,
-       36,37,38
-      ],
-    'OUTER':[
-      53, 50, 47,
-      17, 14, 11,
-      24, 25, 26,
-      42, 43, 44
+    'FACE': [8, 5, 2, 1, 0, 3, 6, 7],
+    'INNER': [
+      51, 48, 45,
+      15, 12, 9,
+      18, 19, 20,
+      36, 37, 38
+    ],
+  },
+  'D': {
+    'FACE': [29, 28, 27, 30, 33, 34, 35, 32],
+    'INNER': [
+      26, 25, 24,
+      11, 14, 17,
+      47, 50, 53,
+      44, 43, 42
     ]
   },
   'R': {
-    'INNER':[
-       33, 30, 27,
-       24, 21, 18,
-       0, 1, 2,
-       45, 46, 47
-      ],
-    'OUTER':[
-      35, 32, 29,
-      26, 23, 20,
-      6, 7, 8,
-      51, 52, 53
+    'FACE': [17, 14, 11, 10, 9, 12, 15, 16],
+    'INNER': [
+      33, 30, 27,
+      24, 21, 18,
+      0, 1, 2,
+      45, 46, 47
+    ]
+  },
+  'L': {
+    'FACE': [36, 39, 42, 43, 44, 41, 38, 37],
+    'INNER': [
+      20, 23, 26,
+      29, 32, 35,
+      53, 52, 51,
+      8, 7, 6
     ]
   },
   'F': {
-    'INNER':[ 
+    'FACE': [26, 23, 20, 19, 18, 21, 24, 25],
+    'INNER': [
       42, 39, 36,
       6, 3, 0,
       9, 10, 11,
       27, 28, 29
-      ],
-    'OUTER':[
-      44, 41, 38,
-      8, 5, 2,
-      15, 16, 17,
-      33, 34, 35
+    ],
+  },
+  'B': {
+    'FACE': [47, 46, 45, 48, 51, 52, 53, 50],
+    'INNER': [
+      17, 16, 15,
+      2, 5, 8,
+      38, 41, 44,
+      35, 34, 33
     ]
   }
+
 }
 
 
 export function Graph2D() {
-   const [nodes, setNodes] = useState(()=> structuredClone(INITIAL_NODES))
+  const [nodes, setNodes] = useState(() => structuredClone(INITIAL_NODES))
   const circles = GUIDE_CIRCLES
 
-  const moveClockwise=(arr: number[], nodes: NodePos[])=>{
 
-    const indicesToUpdate = arr.map((_,index) =>  arr.at(index - 3)!)
-    const newValues = indicesToUpdate.map(index=> nodes[index].face)
+  const moveFaceClockwise = (arr: number[], nodes: NodePos[]) => {
+    const POSITIONS_TO_MOVE = 2
+    const indicesToUpdate = arr.map((_, index) => arr.at(index - POSITIONS_TO_MOVE)!)
+    const newValues = indicesToUpdate.map(index => nodes[index].face)
     arr.forEach((index, i) => nodes[index].face = newValues[i])
 
     return nodes
 
   }
 
-  const moveCounterClockwise=(arr: number[], nodes: NodePos[])=>{
+  const moveFaceCounterClockwise = (arr: number[], nodes: NodePos[]) => {
 
+    const POSITIONS_TO_MOVE = 2
     const arrLength = arr.length;
-    const indicesToUpdate = arr.map((_,index) =>  arr.at((index + 3) % arrLength)!)
-    const newValues = indicesToUpdate.map(index=> nodes[index].face)
+    const indicesToUpdate = arr.map((_, index) => arr.at((index + POSITIONS_TO_MOVE) % arrLength)!)
+    const newValues = indicesToUpdate.map(index => nodes[index].face)
     arr.forEach((index, i) => nodes[index].face = newValues[i])
 
     return nodes
 
   }
 
-   const applyMoveToNodes = (move: MoveName, nodes: NodePos[]): NodePos[] => {
+  const moveCircleClockwise = (arr: number[], nodes: NodePos[]) => {
+    const POSITIONS_TO_MOVE = 3
+    const indicesToUpdate = arr.map((_, index) => arr.at(index - POSITIONS_TO_MOVE)!)
+    const newValues = indicesToUpdate.map(index => nodes[index].face)
+    arr.forEach((index, i) => nodes[index].face = newValues[i])
+
+    return nodes
+
+  }
+
+  const moveCircleCounterClockwise = (arr: number[], nodes: NodePos[]) => {
+
+    const POSITIONS_TO_MOVE = 3
+    const arrLength = arr.length;
+    const indicesToUpdate = arr.map((_, index) => arr.at((index + POSITIONS_TO_MOVE) % arrLength)!)
+    const newValues = indicesToUpdate.map(index => nodes[index].face)
+    arr.forEach((index, i) => nodes[index].face = newValues[i])
+
+    return nodes
+
+  }
+
+  const cw = (g: { FACE: number[]; INNER: number[] }, n: NodePos[]) => moveCircleClockwise(g.INNER, moveFaceClockwise(g.FACE, n))
+  const ccw = (g: { FACE: number[]; INNER: number[] }, n: NodePos[]) => moveCircleCounterClockwise(g.INNER, moveFaceCounterClockwise(g.FACE, n))
+  const twice = (g: { FACE: number[]; INNER: number[] }, n: NodePos[]) => cw(g, cw(g, n))
+
+  const applyMoveToNodes = (move: MoveName, nodes: NodePos[]): NodePos[] => {
     const U = ROTATION_CIRCLES.U
     const R = ROTATION_CIRCLES.R
     const F = ROTATION_CIRCLES.F
-  
+    const D = ROTATION_CIRCLES.D
+    const L = ROTATION_CIRCLES.L
+    const B = ROTATION_CIRCLES.B
+
+
     switch (move) {
-      // ----- U / D share the U group's circles (U=inner, D=outer) -----
       case 'U':
-        return moveClockwise(U.INNER, nodes)
+        return cw(U, nodes)
       case "U'":
-        return moveCounterClockwise(U.INNER, nodes)
+        return ccw(U, nodes)
       case 'U2':
-        return moveClockwise(U.INNER, moveClockwise(U.INNER, nodes))
-  
+        return twice(U, nodes)
+
       case 'D':
-        return moveCounterClockwise(U.OUTER, nodes)
+        return cw(D, nodes)
       case "D'":
-        return moveClockwise(U.OUTER, nodes)
+        return ccw(D, nodes)
       case 'D2':
-        return moveCounterClockwise(U.OUTER, moveCounterClockwise(U.OUTER, nodes))
-  
-      // ----- R / L share the R group's circles (R=inner, L=outer) -----
+        return twice(D, nodes)
+
       case 'R':
-        return moveClockwise(R.INNER, nodes)
+        return cw(R, nodes)
       case "R'":
-        return moveCounterClockwise(R.INNER, nodes)
+        return ccw(R, nodes)
       case 'R2':
-        return moveClockwise(R.INNER, moveClockwise(R.INNER, nodes))
-  
+        return twice(R, nodes)
+
       case 'L':
-        return moveCounterClockwise(R.OUTER, nodes)
+        return cw(L, nodes)
       case "L'":
-        return moveClockwise(R.OUTER, nodes)
+        return ccw(L, nodes)
       case 'L2':
-        return moveCounterClockwise(R.OUTER, moveCounterClockwise(R.OUTER, nodes))
-  
-      // ----- F / B share the F group's circles (F=inner, B=outer) -----
+        return twice(L, nodes)
+
       case 'F':
-        return moveClockwise(F.INNER, nodes)
+        return cw(F, nodes)
       case "F'":
-        return moveCounterClockwise(F.INNER, nodes)
+        return ccw(F, nodes)
       case 'F2':
-        return moveClockwise(F.INNER, moveClockwise(F.INNER, nodes))
-  
+        return twice(F, nodes)
+
       case 'B':
-        return moveCounterClockwise(F.OUTER, nodes)
+        return cw(B, nodes)
       case "B'":
-        return moveClockwise(F.OUTER, nodes)
+        return ccw(B, nodes)
       case 'B2':
-        return moveCounterClockwise(F.OUTER, moveCounterClockwise(F.OUTER, nodes))
-  
+        return twice(B, nodes)
+
       default:
         return nodes
     }
   }
 
-  const rotateCircle=(move: MoveName)=>{
-      const newNodes = applyMoveToNodes(move, nodes);
-      setNodes([...newNodes])
+  const rotateCircle = (move: MoveName) => {
+    const newNodes = applyMoveToNodes(move, nodes);
+    setNodes([...newNodes])
 
   }
 
