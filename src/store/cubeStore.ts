@@ -12,8 +12,7 @@ type CubeStore = {
   state: CubeState
   history: MoveName[]
   solved: boolean
-  lastMove: { move: MoveName; seq: number } | null
-
+  lastMove: MoveName | null,
   applyMove: (move: MoveName) => void
   reset: () => void
   undo: () => void
@@ -30,7 +29,6 @@ export const useCubeStore = create<CubeStore>()(
       history: [],
       solved: true,
       lastMove: null,
-
       applyMove: (move) =>
         set((s) => {
           const next = applyMove(s.state, move)
@@ -38,10 +36,10 @@ export const useCubeStore = create<CubeStore>()(
             state: next,
             history: [...s.history, move],
             solved: isSolved(next),
-            lastMove: { move, seq: (s.lastMove?.seq ?? 0) + 1 },
+            lastMove: move,
           }
         }),
-      reset: () => set({ state: solvedState(), history: [], solved: true }),
+      reset: () => set({ state: solvedState(), history: [], solved: true, lastMove: null }),
 
       undo: () => {
         const { history } = get()
@@ -49,7 +47,7 @@ export const useCubeStore = create<CubeStore>()(
         const nextHistory = history.slice(0, -1)
         // Recompute from solved for correctness (cheap for a 3x3).
         const next = applyMoves(solvedState(), nextHistory)
-        set({ state: next, history: nextHistory, solved: isSolved(next) })
+        set({ state: next, history: nextHistory, solved: isSolved(next), lastMove: null })
       },
     }),
     {

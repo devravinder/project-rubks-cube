@@ -139,9 +139,12 @@ const ROTATION_CIRCLES = {
 
 }
 
+const getInitialNodes=()=> structuredClone(INITIAL_NODES)
 
 export function Graph2D() {
-  const [nodes, setNodes] = useState(() => structuredClone(INITIAL_NODES))
+  const lastMove = useCubeStore((s) => s.lastMove)
+  const history = useCubeStore((s)=> s.history)
+  const [nodes, setNodes] = useState(() => getInitialNodes())
   const circles = GUIDE_CIRCLES
 
 
@@ -253,13 +256,30 @@ export function Graph2D() {
   const applyMove = (move: MoveName) => {
     const newNodes = applyMoveToNodes(move, nodes);
     setNodes([...newNodes])
-
   }
 
-  const lastMove = useCubeStore((s) => s.lastMove)
+  const applyHistory = (moves: MoveName[])=>{
+    let updatedNodes = getInitialNodes()
+    for(let move of moves){
+          updatedNodes = applyMoveToNodes(move, updatedNodes)
+    }
+    setNodes([...updatedNodes])
+  }
+
   useEffect(() => {
-    if (!lastMove) return
-    applyMove(lastMove.move)
+    // history, reset & undo
+    if(!lastMove){
+         applyHistory(history)
+       }
+  }, [history, lastMove])
+  
+
+  useEffect(() => {
+
+    // move 
+    if (lastMove){
+      applyMove(lastMove)
+    }
   }, [lastMove])
 
   return (
