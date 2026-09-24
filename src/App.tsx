@@ -4,8 +4,14 @@ import { GraphPanel } from './components/GraphPanel'
 import { Controls } from './components/Controls'
 import { MovePad } from './components/MovePad'
 import { StatusBadge } from './components/StatusBadge'
+import { useCubeStore } from './store/cubeStore'
+import TestPanel from './components/TestPanel'
+import { AnimatedGraphPanel } from './components/AnimatedGraphPanel'
 
 function App() {
+  const test = useCubeStore((s) => s.test)
+  console.log({ test })
+
   return (
     <div className="flex h-[100svh] flex-col overflow-hidden bg-background text-foreground">
       {/* Header */}
@@ -19,18 +25,15 @@ function App() {
         </div>
       </header>
 
-      {/*
-        Views area.
-        - Mobile (default): column — cube on top, graph below, each flexing to
-          share the available height so both fit within one screen.
-        - Desktop (lg+): row — cube and graph side by side, full height.
-      */}
       <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <section className="min-h-0 flex-1 border-b border-border lg:border-b-0 lg:border-r">
-          <CubePanel />
+          {test ? <TestPanel /> : <CubePanel />}
+        </section>
+        <section className="min-h-0 flex-1 border-b border-border lg:border-b-0 lg:border-r">
+          <GraphPanel />
         </section>
         <section className="min-h-0 flex-1">
-          <GraphPanel />
+          <AnimatedGraphPanel />
         </section>
       </main>
 

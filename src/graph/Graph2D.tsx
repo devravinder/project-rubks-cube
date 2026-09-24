@@ -319,8 +319,9 @@ export function Graph2D() {
                 dominantBaseline="middle"
                 fill="rgba(0,0,0,0.7)"
               >
-                {node.label}
-                {/* {node.faceletIndex} // use this while debugging */}
+                {/* {node.label} */}
+                {/* // use this while debugging */}
+                {node.faceletIndex} 
               </text>
             </g>
           )

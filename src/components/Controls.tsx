@@ -9,6 +9,8 @@ export function Controls() {
   const applyMove = useCubeStore((s) => s.applyMove)
   const reset = useCubeStore((s) => s.reset)
   const undo = useCubeStore((s) => s.undo)
+  const triggerTest = useCubeStore((s) => s.triggerTest)
+
   const historyLength = useCubeStore((s) => s.history.length)
 
   const scramble = async()=>{
@@ -22,6 +24,9 @@ export function Controls() {
 
   return (
     <div className="flex items-center gap-1.5">
+      <Button variant="ghost" onClick={() => triggerTest()} title="Test 2D">
+        Test 2D
+      </Button>
       <Button onClick={() => scramble()} title="Scramble the cube">
         Scramble
       </Button>
