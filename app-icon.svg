@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Transparent background (no fill rect). -->
+
+  <!-- Isometric Rubik's cube. Three visible faces: top, left (front), right. -->
+  <g transform="translate(256 268)">
+    <!-- Geometry helpers: cube half-width w, top rhombus. -->
+    <!-- We draw a 3x3 grid on each of the 3 visible faces. -->
+
+    <!-- ===== TOP FACE (white/grey) ===== -->
+    <g stroke="#0b0b0b" stroke-width="7" stroke-linejoin="round">
+      <!-- 9 top tiles as rhombi -->
+      <!-- Row/col mapping via parallelogram basis: ax=(1,0.5) scaled, etc. -->
+      <!-- top cell (r,c): P = O + c*u + r*v, u=(52,-30), v=(-52,-30) from top apex going down -->
+      <!-- We precompute tiles. -->
+      <!-- tile centers computed in generator; here explicit paths -->
+      <!-- Top face tiles -->
+      <polygon points="0,-156 52,-126 0,-96 -52,-126" fill="#d0d0d0"/>
+      <polygon points="52,-126 104,-96 52,-66 0,-96" fill="#d0d0d0"/>
+      <polygon points="104,-96 156,-66 104,-36 52,-66" fill="#d0d0d0"/>
+      <polygon points="-52,-126 0,-96 -52,-66 -104,-96" fill="#d0d0d0"/>
+      <polygon points="0,-96 52,-66 0,-36 -52,-66" fill="#e8e8e8"/>
+      <polygon points="52,-66 104,-36 52,-6 0,-36" fill="#d0d0d0"/>
+      <polygon points="-104,-96 -52,-66 -104,-36 -156,-66" fill="#d0d0d0"/>
+      <polygon points="-52,-66 0,-36 -52,-6 -104,-36" fill="#d0d0d0"/>
+      <polygon points="0,-36 52,-6 0,24 -52,-6" fill="#d0d0d0"/>
+    </g>
+
+    <!-- ===== LEFT FACE (green) ===== -->
+    <g stroke="#0b0b0b" stroke-width="7" stroke-linejoin="round">
+      <!-- left face parallelogram basis: right-down u=(52,30), down v=(0,60) -->
+      <!-- origin apex at (-156,-66) going to (0,24) etc. -->
+      <polygon points="-156,-66 -104,-36 -104,24 -156,-6" fill="#00b140"/>
+      <polygon points="-104,-36 -52,-6 -52,54 -104,24" fill="#00b140"/>
+      <polygon points="-52,-6 0,24 0,84 -52,54" fill="#00b140"/>
+      <polygon points="-156,-6 -104,24 -104,84 -156,54" fill="#00b140"/>
+      <polygon points="-104,24 -52,54 -52,114 -104,84" fill="#00c94a"/>
+      <polygon points="-52,54 0,84 0,144 -52,114" fill="#00b140"/>
+      <polygon points="-156,54 -104,84 -104,144 -156,114" fill="#00b140"/>
+      <polygon points="-104,84 -52,114 -52,174 -104,144" fill="#00b140"/>
+      <polygon points="-52,114 0,144 0,204 -52,174" fill="#00b140"/>
+    </g>
+
+    <!-- ===== RIGHT FACE (red) ===== -->
+    <g stroke="#0b0b0b" stroke-width="7" stroke-linejoin="round">
+      <!-- right face basis: left-down and down; mirror of left face -->
+      <polygon points="156,-66 104,-36 104,24 156,-6" fill="#e00000"/>
+      <polygon points="104,-36 52,-6 52,54 104,24" fill="#e00000"/>
+      <polygon points="52,-6 0,24 0,84 52,54" fill="#e00000"/>
+      <polygon points="156,-6 104,24 104,84 156,54" fill="#e00000"/>
+      <polygon points="104,24 52,54 52,114 104,84" fill="#ff1a1a"/>
+      <polygon points="52,54 0,84 0,144 52,114" fill="#e00000"/>
+      <polygon points="156,54 104,84 104,144 156,114" fill="#e00000"/>
+      <polygon points="104,84 52,114 52,174 104,144" fill="#e00000"/>
+      <polygon points="52,114 0,144 0,204 52,174" fill="#e00000"/>
+    </g>
+  </g>
+</svg>
