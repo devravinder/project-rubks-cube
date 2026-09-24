@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Stage, Layer, Circle, Group, Text } from 'react-konva'
+import type Konva from 'konva'
 import { FACE_COLOR, type Face } from '../cube/facelet'
+import type { MoveName } from '../cube/moves'
 import { useCubeStore } from '../store/cubeStore'
 
 /**
@@ -82,6 +84,50 @@ const GROUP_CENTER: Record<Face, { x: number; y: number }> = {
 const posOf: Record<number, { x: number; y: number }> = {}
 for (const n of NODES) posOf[n.faceletIndex] = { x: n.x, y: n.y }
 
+// The 3 group circle centres (pivots for ring rotation). The MIDDLE ring is
+// static; only inner/outer rings trigger, via the EDGE_TRACK map below.
+
+/**
+ * EDGE-MIDDLE sticker → the ONE trackable ring it drives.
+ * Each face's 4 edge-middle stickers (locals 1,3,5,7) lie on a static MIDDLE
+ * ring + exactly one INNER/OUTER ring. Dragging that sticker rotates that ring.
+ * `invert` marks outer rings (their face turns opposite the drag direction).
+ * Built from the mandala geometry (verified against the reference).
+ */
+type EdgeTrack = { cx: number; cy: number; move: Face; invert: boolean }
+const EDGE_TRACK: Record<number, EdgeTrack> = {
+  // U
+  1: { cx: 64.85, cy: 64.57, move: 'R', invert: false },
+  3: { cx: 35.15, cy: 64.57, move: 'F', invert: false },
+  5: { cx: 35.15, cy: 64.57, move: 'B', invert: true },
+  7: { cx: 64.85, cy: 64.57, move: 'L', invert: true },
+  // R
+  10: { cx: 35.15, cy: 64.57, move: 'F', invert: false },
+  12: { cx: 50, cy: 38.85, move: 'U', invert: false },
+  14: { cx: 50, cy: 38.85, move: 'D', invert: true },
+  16: { cx: 35.15, cy: 64.57, move: 'B', invert: true },
+  // F
+  19: { cx: 50, cy: 38.85, move: 'U', invert: false },
+  21: { cx: 64.85, cy: 64.57, move: 'R', invert: false },
+  23: { cx: 64.85, cy: 64.57, move: 'L', invert: true },
+  25: { cx: 50, cy: 38.85, move: 'D', invert: true },
+  // D
+  28: { cx: 35.15, cy: 64.57, move: 'F', invert: false },
+  30: { cx: 64.85, cy: 64.57, move: 'R', invert: false },
+  32: { cx: 64.85, cy: 64.57, move: 'L', invert: true },
+  34: { cx: 35.15, cy: 64.57, move: 'B', invert: true },
+  // L
+  37: { cx: 50, cy: 38.85, move: 'U', invert: false },
+  39: { cx: 35.15, cy: 64.57, move: 'F', invert: false },
+  41: { cx: 35.15, cy: 64.57, move: 'B', invert: true },
+  43: { cx: 50, cy: 38.85, move: 'D', invert: true },
+  // B
+  46: { cx: 64.85, cy: 64.57, move: 'R', invert: false },
+  48: { cx: 50, cy: 38.85, move: 'U', invert: false },
+  50: { cx: 50, cy: 38.85, move: 'D', invert: true },
+  52: { cx: 64.85, cy: 64.57, move: 'L', invert: true },
+}
+
 // faceletIndex → face label (only the centre stickers carry a label).
 const labelOf: Record<number, string> = {}
 for (const n of NODES) if (n.label) labelOf[n.faceletIndex] = n.label
@@ -160,6 +206,21 @@ export function AnimatedGraphPanel() {
   const lastMove = useCubeStore((s) => s.lastMove)
   const debug = useCubeStore((s) => s.debug)
   const history = useCubeStore((s) => s.history)
+  const applyMove = useCubeStore((s) => s.applyMove)
+
+  // Drag-to-rotate along a RING track. On press, we detect which group's inner
+  // or outer ring the pointer is on (middle ring = static, ignored). Sweeping
+  // around that group's centre commits the mapped move on release. This ONLY
+  // calls applyMove — the store drives 3D + the 2D animation.
+  const dragRef = useRef<{
+    cx: number
+    cy: number
+    move: MoveName
+    invert: boolean
+    startAng: number
+    sweep: number
+  } | null>(null)
+  const DRAG_COMMIT_DEG = 0.1
 
   // Displayed color at each slot — derived from the SVG-2D permutation model.
   const [colors, setColors] = useState<Face[]>(() => colorsFromHistory(history))
@@ -187,6 +248,87 @@ export function AnimatedGraphPanel() {
   const scale = (size * FILL_FACTOR) / VIEW
   // Offset to center the scaled 100-unit content within the square stage.
   const offset = (size - VIEW * scale) / 2
+
+  // Stage ref — used to attach native pointer listeners on its DOM container,
+  // which gives a reliable drag lifecycle (Konva's per-node/stage pointer events
+  // don't track a drag once the pointer leaves the shape).
+  const stageRef = useRef<Konva.Stage>(null)
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    const container = stage.container()
+
+    // Pointer → 100-unit viewBox coords (accounts for scale + centering offset).
+    const toView = () => {
+      const p = stage.getRelativePointerPosition()
+      return p ? { x: p.x, y: p.y } : null
+    }
+
+    const onDown = (ev: PointerEvent) => {
+      const pt = toView()
+      if (!pt) return
+      // Find the nearest EDGE-MIDDLE sticker to the press (only those trigger).
+      let id = -1
+      let bestD = 5 // grab radius around the sticker (viewBox units)
+      for (const key of Object.keys(EDGE_TRACK)) {
+        const fi = Number(key)
+        const p = posOf[fi]
+        const d = Math.hypot(pt.x - p.x, pt.y - p.y)
+        if (d < bestD) { bestD = d; id = fi }
+      }
+      if (id < 0) {
+        console.log('[drag] DOWN miss (not near an edge-middle sticker)', pt)
+        return
+      }
+      const track = EDGE_TRACK[id]
+      dragRef.current = {
+        cx: track.cx,
+        cy: track.cy,
+        move: track.move,
+        invert: track.invert,
+        startAng: Math.atan2(pt.y - track.cy, pt.x - track.cx),
+        sweep: 0,
+      }
+      container.setPointerCapture?.(ev.pointerId)
+      console.log('[drag] DOWN sticker', id, '→', track.move, track.invert ? "'" : "")
+    }
+    const onMove = () => {
+      const d = dragRef.current
+      if (!d) return
+      const pt = toView()
+      if (!pt) return
+      let sweep = ((Math.atan2(pt.y - d.cy, pt.x - d.cx) - d.startAng) * 180) / Math.PI
+      while (sweep > 180) sweep -= 360
+      while (sweep <= -180) sweep += 360
+      d.sweep = sweep
+    }
+    const onUp = (ev: PointerEvent) => {
+      const d = dragRef.current
+      dragRef.current = null
+      container.releasePointerCapture?.(ev.pointerId)
+      if (!d) return
+      if (Math.abs(d.sweep) < DRAG_COMMIT_DEG) return
+      let clockwise = d.sweep > 0
+      if (d.invert) clockwise = !clockwise // outer ring inverts direction
+      const move = (clockwise ? d.move : `${d.move}'`) as MoveName
+      console.log('[drag] TRIGGER', move)
+      applyMove(move)
+    }
+
+    container.style.touchAction = 'none'
+    container.addEventListener('pointerdown', onDown)
+    container.addEventListener('pointermove', onMove)
+    container.addEventListener('pointerup', onUp)
+    container.addEventListener('pointercancel', onUp)
+    return () => {
+      container.removeEventListener('pointerdown', onDown)
+      container.removeEventListener('pointermove', onMove)
+      container.removeEventListener('pointerup', onUp)
+      container.removeEventListener('pointercancel', onUp)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyMove])
 
   // Keep displayed colors in sync (idle) with the history-replay permutation.
   useEffect(() => {
@@ -287,7 +429,15 @@ export function AnimatedGraphPanel() {
 
   return (
     <div ref={wrapRef} className="flex h-full w-full items-center justify-center bg-card">
-      <Stage width={size} height={size} scaleX={scale} scaleY={scale} x={offset} y={offset}>
+      <Stage
+        ref={stageRef}
+        width={size}
+        height={size}
+        scaleX={scale}
+        scaleY={scale}
+        x={offset}
+        y={offset}
+      >
         <Layer>
           {/* Guide circles. */}
           {GUIDE_CIRCLES.map((c, i) => (
@@ -297,7 +447,14 @@ export function AnimatedGraphPanel() {
           {/* Static slots (not currently animating). */}
           {NODES.filter((n) => !hidden.has(n.faceletIndex)).map((n) => (
             <Group key={n.faceletIndex}>
-              <Circle x={n.x} y={n.y} radius={NODE_R} fill={FACE_COLOR[colors[n.faceletIndex]]} stroke="rgba(0,0,0,0.4)" strokeWidth={0.25} />
+              <Circle
+                x={n.x}
+                y={n.y}
+                radius={NODE_R}
+                fill={FACE_COLOR[colors[n.faceletIndex]]}
+                stroke="rgba(0,0,0,0.4)"
+                strokeWidth={0.25}
+              />
               <Text
                 x={n.x - 3}
                 y={n.y - 1.4}
