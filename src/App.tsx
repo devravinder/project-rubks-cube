@@ -1,16 +1,11 @@
-import { ThemeToggle } from './components/ThemeToggle'
-import { CubePanel } from './components/CubePanel'
-import { GraphPanel } from './components/GraphPanel'
+import { AnimatedGraphPanel } from './components/AnimatedGraphPanel'
 import { Controls } from './components/Controls'
+import { CubePanel } from './components/CubePanel'
 import { MovePad } from './components/MovePad'
 import { StatusBadge } from './components/StatusBadge'
-import { useCubeStore } from './store/cubeStore'
-import TestPanel from './components/TestPanel'
-import { AnimatedGraphPanel } from './components/AnimatedGraphPanel'
+import { ThemeToggle } from './components/ThemeToggle'
 
 function App() {
-  const test = useCubeStore((s) => s.test)
-  console.log({ test })
 
   return (
     <div className="flex h-[100svh] flex-col overflow-hidden bg-background text-foreground">
@@ -27,10 +22,7 @@ function App() {
 
       <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <section className="min-h-0 flex-1 border-b border-border lg:border-b-0 lg:border-r">
-          {test ? <TestPanel /> : <CubePanel />}
-        </section>
-        <section className="min-h-0 flex-1 border-b border-border lg:border-b-0 lg:border-r">
-          <GraphPanel />
+          <CubePanel />
         </section>
         <section className="min-h-0 flex-1">
           <AnimatedGraphPanel />

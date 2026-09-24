@@ -16,6 +16,9 @@ import { useCubeStore } from '../store/cubeStore'
 // ---- Layout data (same mandala as the SVG 2D view) ----
 const VIEW = 100
 const NODE_R = 2.4
+// Fraction of the panel the mandala fills (< 1 leaves margin, matching the 3D
+// cube's framing so both panels look similarly sized).
+const FILL_FACTOR = 0.78
 
 type NodePos = { faceletIndex: number; x: number; y: number; face: Face; label?: string }
 const NODES: NodePos[] = [
@@ -176,7 +179,9 @@ export function AnimatedGraphPanel() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const scale = size / VIEW
+  const scale = (size * FILL_FACTOR) / VIEW
+  // Offset to center the scaled 100-unit content within the square stage.
+  const offset = (size - VIEW * scale) / 2
 
   // Keep displayed colors in sync (idle) with the history-replay permutation.
   useEffect(() => {
@@ -277,7 +282,7 @@ export function AnimatedGraphPanel() {
 
   return (
     <div ref={wrapRef} className="flex h-full w-full items-center justify-center bg-card">
-      <Stage width={size} height={size} scaleX={scale} scaleY={scale}>
+      <Stage width={size} height={size} scaleX={scale} scaleY={scale} x={offset} y={offset}>
         <Layer>
           {/* Guide circles. */}
           {GUIDE_CIRCLES.map((c, i) => (

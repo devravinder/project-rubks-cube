@@ -1,12 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { solvedState, isSolved, type CubeState } from '../cube/facelet'
+import { isSolved, solvedState, type CubeState } from '../cube/facelet'
 import {
   applyMove,
   applyMoves,
   type MoveName,
 } from '../cube/moves'
-import { test } from 'vitest'
 
 type CubeStore = {
   /** The single source of truth: 54 facelet colors. Both the 3D and 2D views read this. */
@@ -14,11 +13,9 @@ type CubeStore = {
   history: MoveName[]
   solved: boolean
   lastMove: MoveName | null,
-  test: boolean,
   applyMove: (move: MoveName) => void
   reset: () => void
   undo: () => void
-  triggerTest: () => void
 }
 
 export const allMoves = ['U', "U'", 'U2', 'R', "R'", 'R2', 'F', "F'", 'F2', 'D', "D'", 'D2', 'L', "L'", 'L2', 'B', "B'", 'B2']
@@ -32,8 +29,6 @@ export const useCubeStore = create<CubeStore>()(
       history: [],
       solved: true,
       lastMove: null,
-      test: false,
-      triggerTest:()=> set((s)=> ({test: !s.test})),
       applyMove: (move) =>
         set((s) => {
           const next = applyMove(s.state, move)
