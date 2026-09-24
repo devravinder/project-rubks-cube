@@ -13,9 +13,12 @@ type CubeStore = {
   history: MoveName[]
   solved: boolean
   lastMove: MoveName | null,
+  debug: boolean /** Debug mode: when true, views show facelet INDICES instead of face labels. */
   applyMove: (move: MoveName) => void
   reset: () => void
   undo: () => void
+  /** Toggle (or set) debug mode. */
+  setDebug: (on?: boolean) => void
 }
 
 export const allMoves = ['U', "U'", 'U2', 'R', "R'", 'R2', 'F', "F'", 'F2', 'D', "D'", 'D2', 'L', "L'", 'L2', 'B', "B'", 'B2']
@@ -29,6 +32,8 @@ export const useCubeStore = create<CubeStore>()(
       history: [],
       solved: true,
       lastMove: null,
+      // On in development by default; toggle at runtime via setDebug.
+      debug: false && import.meta.env.DEV,
       applyMove: (move) =>
         set((s) => {
           const next = applyMove(s.state, move)
@@ -49,6 +54,8 @@ export const useCubeStore = create<CubeStore>()(
         const next = applyMoves(solvedState(), nextHistory)
         set({ state: next, history: nextHistory, solved: isSolved(next), lastMove: null })
       },
+
+      setDebug: (on) => set((s) => ({ debug: on ?? !s.debug })),
     }),
     {
       name: 'rubiks-cube-state',

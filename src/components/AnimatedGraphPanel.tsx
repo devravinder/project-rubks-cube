@@ -82,6 +82,10 @@ const GROUP_CENTER: Record<Face, { x: number; y: number }> = {
 const posOf: Record<number, { x: number; y: number }> = {}
 for (const n of NODES) posOf[n.faceletIndex] = { x: n.x, y: n.y }
 
+// faceletIndex → face label (only the centre stickers carry a label).
+const labelOf: Record<number, string> = {}
+for (const n of NODES) if (n.label) labelOf[n.faceletIndex] = n.label
+
 const ANIM_MS = 300
 
 // Shift amounts (array positions) for one quarter turn — matches the 2D logic:
@@ -154,6 +158,7 @@ function colorsFromHistory(history: string[]): Face[] {
 
 export function AnimatedGraphPanel() {
   const lastMove = useCubeStore((s) => s.lastMove)
+  const debug = useCubeStore((s) => s.debug)
   const history = useCubeStore((s) => s.history)
 
   // Displayed color at each slot — derived from the SVG-2D permutation model.
@@ -293,7 +298,16 @@ export function AnimatedGraphPanel() {
           {NODES.filter((n) => !hidden.has(n.faceletIndex)).map((n) => (
             <Group key={n.faceletIndex}>
               <Circle x={n.x} y={n.y} radius={NODE_R} fill={FACE_COLOR[colors[n.faceletIndex]]} stroke="rgba(0,0,0,0.4)" strokeWidth={0.25} />
-              <Text x={n.x - 3} y={n.y - 1.4} width={6} align="center" text={String(n.faceletIndex)} fontSize={2.6} fontStyle="bold" fill="rgba(0,0,0,0.75)" />
+              <Text
+                x={n.x - 3}
+                y={n.y - 1.4}
+                width={6}
+                align="center"
+                text={debug ? String(n.faceletIndex) : (labelOf[n.faceletIndex] ?? '')}
+                fontSize={2.6}
+                fontStyle="bold"
+                fill="rgba(0,0,0,0.75)"
+              />
             </Group>
           ))}
 
@@ -305,7 +319,16 @@ export function AnimatedGraphPanel() {
             return (
               <Group key={`fly-${i}`}>
                 <Circle x={x} y={y} radius={NODE_R} fill={FACE_COLOR[d.color]} stroke="rgba(0,0,0,0.4)" strokeWidth={0.25} />
-                <Text x={x - 3} y={y - 1.4} width={6} align="center" text={String(d.label)} fontSize={2.6} fontStyle="bold" fill="rgba(0,0,0,0.75)" />
+                <Text
+                  x={x - 3}
+                  y={y - 1.4}
+                  width={6}
+                  align="center"
+                  text={debug ? String(d.label) : (labelOf[d.label] ?? '')}
+                  fontSize={2.6}
+                  fontStyle="bold"
+                  fill="rgba(0,0,0,0.75)"
+                />
               </Group>
             )
           })}

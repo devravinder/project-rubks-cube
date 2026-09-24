@@ -57,6 +57,7 @@ export const Cube3D = forwardRef<Cube3DHandle, Cube3DProps>(function Cube3D(
 ) {
   const state = useCubeStore((s) => s.state)
   const applyMove = useCubeStore((s) => s.applyMove)
+  const debug = useCubeStore((s) => s.debug)
   const groups = useMemo(() => groupByCubie(), [])
 
   const pivotRef = useRef<Group>(null)
@@ -98,6 +99,7 @@ export const Cube3D = forwardRef<Cube3DHandle, Cube3DProps>(function Cube3D(
         color: state[def.faceletIndex] as Face,
       }))}
       onStickerPointerDown={onStickerPointerDown}
+      debug={debug}
     />
   )
 
@@ -108,25 +110,30 @@ export const Cube3D = forwardRef<Cube3DHandle, Cube3DProps>(function Cube3D(
         {anim && groups.filter((g) => isInLayer(g.position)).map(renderCubie)}
       </group>
 
-      {/* Face labels (temporary debug). */}
-      <Text position={[0, 0, 1.5]} fontSize={0.8} color="black" anchorX="center" anchorY="middle">
-        F
-      </Text>
-      <Text position={[0, 0, -1.5]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI, 0]}>
-        B
-      </Text>
-      <Text position={[1.5, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI / 2, 0]}>
-        R
-      </Text>
-      <Text position={[-1.5, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, -Math.PI / 2, 0]}>
-        L
-      </Text>
-      <Text position={[0, 1.5, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, Math.PI]}>
-        U
-      </Text>
-      <Text position={[0, -1.5, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, 0]}>
-        D
-      </Text>
+      {/* Big face-centre labels — shown only when NOT in debug mode (debug
+          shows per-sticker facelet indices instead). */}
+      {!debug && (
+        <>
+          <Text position={[0, 0, 1.5]} fontSize={0.8} color="black" anchorX="center" anchorY="middle">
+            F
+          </Text>
+          <Text position={[0, 0, -1.5]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI, 0]}>
+            B
+          </Text>
+          <Text position={[1.5, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, Math.PI / 2, 0]}>
+            R
+          </Text>
+          <Text position={[-1.5, 0, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[0, -Math.PI / 2, 0]}>
+            L
+          </Text>
+          <Text position={[0, 1.5, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, Math.PI]}>
+            U
+          </Text>
+          <Text position={[0, -1.5, 0]} fontSize={0.8} color="black" anchorX="center" anchorY="middle" rotation={[Math.PI / 2, 0, 0]}>
+            D
+          </Text>
+        </>
+      )}
     </group>
   )
 })

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { RoundedBox } from '@react-three/drei'
+import { RoundedBox, Text } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import { FACE_COLOR, type Face } from '../cube/facelet'
 import type { StickerDef, Vec3 } from './geometry'
@@ -12,6 +12,8 @@ type CubieProps = {
   position: Vec3
   stickers: Array<{ def: StickerDef; color: Face }>
   onStickerPointerDown?: (e: ThreeEvent<PointerEvent>) => void
+  /** When true, draw each sticker's facelet index on it (debug). */
+  debug?: boolean
 }
 
 function stickerRotation(normal: Vec3): [number, number, number] {
@@ -26,7 +28,7 @@ function stickerRotation(normal: Vec3): [number, number, number] {
 }
 
 /** One cubie with colored sticker tiles. Stickers carry userData for picking. */
-export function Cubie({ position, stickers, onStickerPointerDown }: CubieProps) {
+export function Cubie({ position, stickers, onStickerPointerDown, debug }: CubieProps) {
   const stickerMeshes = useMemo(
     () =>
       stickers.map(({ def, color }) => {
@@ -36,20 +38,34 @@ export function Cubie({ position, stickers, onStickerPointerDown }: CubieProps) 
           ny * STICKER_OFFSET,
           nz * STICKER_OFFSET,
         ]
+        const rot = stickerRotation(def.normal)
         return (
-          <mesh
-            key={def.faceletIndex}
-            position={pos}
-            rotation={stickerRotation(def.normal)}
-            userData={{ cubie: position, normal: def.normal }}
-            onPointerDown={onStickerPointerDown}
-          >
-            <planeGeometry args={[STICKER_SIZE, STICKER_SIZE]} />
-            <meshStandardMaterial color={FACE_COLOR[color]} roughness={0.35} metalness={0} />
-          </mesh>
+          <group key={def.faceletIndex}>
+            <mesh
+              position={pos}
+              rotation={rot}
+              userData={{ cubie: position, normal: def.normal }}
+              onPointerDown={onStickerPointerDown}
+            >
+              <planeGeometry args={[STICKER_SIZE, STICKER_SIZE]} />
+              <meshStandardMaterial color={FACE_COLOR[color]} roughness={0.35} metalness={0} />
+            </mesh>
+            {debug && (
+              <Text
+                position={[nx * (STICKER_OFFSET + 0.01), ny * (STICKER_OFFSET + 0.01), nz * (STICKER_OFFSET + 0.01)]}
+                rotation={rot}
+                fontSize={0.28}
+                color="#111"
+                anchorX="center"
+                anchorY="middle"
+              >
+                {def.faceletIndex}
+              </Text>
+            )}
+          </group>
         )
       }),
-    [stickers, position, onStickerPointerDown],
+    [stickers, position, onStickerPointerDown, debug],
   )
 
   return (
