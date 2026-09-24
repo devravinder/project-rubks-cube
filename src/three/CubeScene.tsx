@@ -197,10 +197,12 @@ export function CubeScene({
 }) {
   const cubeRef = useRef<Cube3DHandle | null>(null)
   const orbitRef = useRef<OrbitLike | null>(null)
+  // Wider fov on small screens makes the cube appear smaller so it fits nicely.
+  const fov = typeof window !== 'undefined' && window.innerWidth < 1024 ? 52 : 40
 
   return (
     <Canvas
-      camera={{ position: [3.9, 3.9, 4.7], fov: 40 }}
+      camera={{ position: [3.9, 3.9, 4.7], fov }}
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: true }}
       style={{ width: '100%', height: '100%' }}

@@ -9,13 +9,13 @@ export function MovePad() {
   const applyMove = useCubeStore((s) => s.applyMove)
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1">
+    <div className="flex flex-nowrap items-center justify-center gap-0.5 sm:gap-1">
       {ALL_BASE_MOVES.map((move) => (
         <div key={move} className="flex overflow-hidden rounded-md border border-border">
           <button
             type="button"
             onClick={() => applyMove(move)}
-            className="h-8 w-8 bg-secondary text-sm font-medium text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="h-7 w-6 text-xs font-medium sm:h-8 sm:w-8 sm:text-sm bg-secondary text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             title={`${move} (clockwise)`}
           >
             {move}
@@ -23,7 +23,7 @@ export function MovePad() {
           <button
             type="button"
             onClick={() => applyMove(invertMove(move) as MoveName)}
-            className="h-8 w-8 border-l border-border bg-secondary text-sm font-medium text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="h-7 w-6 text-xs font-medium sm:h-8 sm:w-8 sm:text-sm border-l border-border bg-secondary text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             title={`${move}' (counter-clockwise)`}
           >
             {move}&#39;
