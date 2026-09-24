@@ -56,7 +56,7 @@ function Interaction({
   useEffect(() => {
     let raf = 0
     const apply = () => {
-      const controls = orbitRef.current
+      const controls: any = orbitRef.current
       if (!controls?.object) {
         // OrbitControls may not be attached yet on the first tick; retry.
         raf = requestAnimationFrame(apply)
@@ -108,7 +108,7 @@ function Interaction({
   useEffect(() => {
     if (!onReady) return
     const resetCamera = () => {
-      const controls = orbitRef.current
+      const controls: any = orbitRef.current
       if (controls?.object) {
         controls.object.position.set(...DEFAULT_CAMERA_POSE.position)
         controls.target?.set(...DEFAULT_CAMERA_POSE.target)
