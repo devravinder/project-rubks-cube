@@ -9,7 +9,7 @@ export function MovePad() {
   const applyMove = useCubeStore((s) => s.applyMove)
 
   return (
-    <div className="flex flex-nowrap items-center justify-center gap-0.5 sm:gap-1">
+    <div className="flex w-full flex-nowrap items-center justify-evenly sm:justify-center gap-0.5 sm:gap-1">
       {ALL_BASE_MOVES.map((move) => (
         <div key={move} className="flex overflow-hidden rounded-md border border-border">
           <button
