@@ -17,38 +17,47 @@ import { useCubeStore } from '../store/cubeStore'
 
 // ---- Layout data (same mandala as the SVG 2D view) ----
 const VIEW = 100
-const NODE_R = 2.4
+// Sticker radius. With the widened ring spacing, adjacent dots are ~6.78 units
+// apart, so anything up to ~3.39 stays non-overlapping. 3.0 desktop / 3.2 mobile
+// makes the stickers noticeably larger while keeping a clear gap.
+const NODE_R = 3.0
 // Fraction of the panel the mandala fills (< 1 leaves margin, matching the 3D
 // cube's framing so both panels look similarly sized).
 const FILL_FACTOR = 0.78
 
 type NodePos = { faceletIndex: number; x: number; y: number; face: Face; label?: string }
+// Guide-ring spacing widened from 5.4 → 6.5 (radii 23.2 / 29.7 / 36.2). This
+// PULLS the inner ring in and pushes the outer out just enough to grow the
+// smallest dot-to-dot gap from 5.72 → ~6.78, so stickers can be drawn larger
+// (up to r≈3.39) WITHOUT overlapping. Coords are circle-circle intersections of
+// the new radii, preserving the mandala interlock and clean rotation arcs.
 const NODES: NodePos[] = [
-  { faceletIndex: 0, face: 'U', x: 50, y: 45.34 }, { faceletIndex: 1, face: 'U', x: 54.91, y: 42.4 }, { faceletIndex: 2, face: 'U', x: 60.8, y: 40.61 },
-  { faceletIndex: 3, face: 'U', x: 45.09, y: 42.4 }, { faceletIndex: 4, face: 'U', x: 50, y: 38.85, label: 'U' }, { faceletIndex: 5, face: 'U', x: 55.89, y: 36.26 },
-  { faceletIndex: 6, face: 'U', x: 39.2, y: 40.61 }, { faceletIndex: 7, face: 'U', x: 44.11, y: 36.26 }, { faceletIndex: 8, face: 'U', x: 50, y: 32.77 },
-  { faceletIndex: 9, face: 'R', x: 59.23, y: 61.33 }, { faceletIndex: 10, face: 'R', x: 59.32, y: 67.05 }, { faceletIndex: 11, face: 'R', x: 57.93, y: 73.05 },
-  { faceletIndex: 12, face: 'R', x: 64.23, y: 58.55 }, { faceletIndex: 13, face: 'R', x: 64.85, y: 64.57, label: 'R' }, { faceletIndex: 14, face: 'R', x: 64.15, y: 70.97 },
-  { faceletIndex: 15, face: 'R', x: 68.73, y: 54.34 }, { faceletIndex: 16, face: 'R', x: 70.04, y: 60.77 }, { faceletIndex: 17, face: 'R', x: 70.12, y: 67.62 },
-  { faceletIndex: 18, face: 'F', x: 40.77, y: 61.33 }, { faceletIndex: 19, face: 'F', x: 35.77, y: 58.55 }, { faceletIndex: 20, face: 'F', x: 31.27, y: 54.34 },
-  { faceletIndex: 21, face: 'F', x: 40.68, y: 67.05 }, { faceletIndex: 22, face: 'F', x: 35.15, y: 64.57, label: 'F' }, { faceletIndex: 23, face: 'F', x: 29.96, y: 60.77 },
-  { faceletIndex: 24, face: 'F', x: 42.07, y: 73.05 }, { faceletIndex: 25, face: 'F', x: 35.85, y: 70.97 }, { faceletIndex: 26, face: 'F', x: 29.88, y: 67.62 },
-  { faceletIndex: 27, face: 'D', x: 50, y: 83.81 }, { faceletIndex: 28, face: 'D', x: 45.09, y: 86.75 }, { faceletIndex: 29, face: 'D', x: 39.2, y: 88.53 },
-  { faceletIndex: 30, face: 'D', x: 54.91, y: 86.75 }, { faceletIndex: 31, face: 'D', x: 50, y: 90.29, label: 'D' }, { faceletIndex: 32, face: 'D', x: 44.11, y: 92.89 },
-  { faceletIndex: 33, face: 'D', x: 60.8, y: 88.53 }, { faceletIndex: 34, face: 'D', x: 55.89, y: 92.89 }, { faceletIndex: 35, face: 'D', x: 50, y: 96.38 },
-  { faceletIndex: 36, face: 'L', x: 25.92, y: 42.1 }, { faceletIndex: 37, face: 'L', x: 25.83, y: 36.37 }, { faceletIndex: 38, face: 'L', x: 27.22, y: 30.38 },
-  { faceletIndex: 39, face: 'L', x: 20.92, y: 44.88 }, { faceletIndex: 40, face: 'L', x: 20.3, y: 38.85, label: 'L' }, { faceletIndex: 41, face: 'L', x: 21, y: 32.45 },
-  { faceletIndex: 42, face: 'L', x: 16.42, y: 49.09 }, { faceletIndex: 43, face: 'L', x: 15.11, y: 42.66 }, { faceletIndex: 44, face: 'L', x: 15.03, y: 35.81 },
-  { faceletIndex: 45, face: 'B', x: 74.08, y: 42.1 }, { faceletIndex: 46, face: 'B', x: 79.08, y: 44.88 }, { faceletIndex: 47, face: 'B', x: 83.58, y: 49.09 },
-  { faceletIndex: 48, face: 'B', x: 74.17, y: 36.37 }, { faceletIndex: 49, face: 'B', x: 79.7, y: 38.85, label: 'B' }, { faceletIndex: 50, face: 'B', x: 84.89, y: 42.66 },
-  { faceletIndex: 51, face: 'B', x: 72.78, y: 30.38 }, { faceletIndex: 52, face: 'B', x: 79, y: 32.45 }, { faceletIndex: 53, face: 'B', x: 84.97, y: 35.81 },
+  { faceletIndex: 0, face: 'U', x: 50, y: 46.75 }, { faceletIndex: 1, face: 'U', x: 55.79, y: 43.21 }, { faceletIndex: 2, face: 'U', x: 63, y: 41.44 },
+  { faceletIndex: 3, face: 'U', x: 44.21, y: 43.21 }, { faceletIndex: 4, face: 'U', x: 50, y: 38.85, label: 'U' }, { faceletIndex: 5, face: 'U', x: 57.21, y: 35.87 },
+  { faceletIndex: 6, face: 'U', x: 37, y: 41.44 }, { faceletIndex: 7, face: 'U', x: 42.79, y: 35.87 }, { faceletIndex: 8, face: 'U', x: 50, y: 31.56 },
+  { faceletIndex: 9, face: 'R', x: 58.01, y: 60.62 }, { faceletIndex: 10, face: 'R', x: 58.18, y: 67.4 }, { faceletIndex: 11, face: 'R', x: 56.1, y: 74.53 },
+  { faceletIndex: 12, face: 'R', x: 63.97, y: 57.38 }, { faceletIndex: 13, face: 'R', x: 64.85, y: 64.57, label: 'R' }, { faceletIndex: 14, face: 'R', x: 63.82, y: 72.31 },
+  { faceletIndex: 15, face: 'R', x: 69.1, y: 52.01 }, { faceletIndex: 16, face: 'R', x: 71.04, y: 59.82 }, { faceletIndex: 17, face: 'R', x: 71.17, y: 68.22 },
+  { faceletIndex: 18, face: 'F', x: 41.99, y: 60.62 }, { faceletIndex: 19, face: 'F', x: 36.03, y: 57.38 }, { faceletIndex: 20, face: 'F', x: 30.9, y: 52.01 },
+  { faceletIndex: 21, face: 'F', x: 41.82, y: 67.4 }, { faceletIndex: 22, face: 'F', x: 35.15, y: 64.57, label: 'F' }, { faceletIndex: 23, face: 'F', x: 28.96, y: 59.82 },
+  { faceletIndex: 24, face: 'F', x: 43.9, y: 74.53 }, { faceletIndex: 25, face: 'F', x: 36.18, y: 72.31 }, { faceletIndex: 26, face: 'F', x: 28.83, y: 68.22 },
+  { faceletIndex: 27, face: 'D', x: 50, y: 82.39 }, { faceletIndex: 28, face: 'D', x: 44.21, y: 85.93 }, { faceletIndex: 29, face: 'D', x: 37, y: 87.7 },
+  { faceletIndex: 30, face: 'D', x: 55.79, y: 85.93 }, { faceletIndex: 31, face: 'D', x: 50, y: 90.29, label: 'D' }, { faceletIndex: 32, face: 'D', x: 42.79, y: 93.27 },
+  { faceletIndex: 33, face: 'D', x: 63, y: 87.7 }, { faceletIndex: 34, face: 'D', x: 57.21, y: 93.27 }, { faceletIndex: 35, face: 'D', x: 50, y: 97.58 },
+  { faceletIndex: 36, face: 'L', x: 27.14, y: 42.8 }, { faceletIndex: 37, face: 'L', x: 26.97, y: 36.02 }, { faceletIndex: 38, face: 'L', x: 29.05, y: 28.89 },
+  { faceletIndex: 39, face: 'L', x: 21.18, y: 46.04 }, { faceletIndex: 40, face: 'L', x: 20.3, y: 38.85, label: 'L' }, { faceletIndex: 41, face: 'L', x: 21.33, y: 31.11 },
+  { faceletIndex: 42, face: 'L', x: 16.05, y: 51.41 }, { faceletIndex: 43, face: 'L', x: 14.11, y: 43.6 }, { faceletIndex: 44, face: 'L', x: 13.98, y: 35.2 },
+  { faceletIndex: 45, face: 'B', x: 72.86, y: 42.8 }, { faceletIndex: 46, face: 'B', x: 78.82, y: 46.04 }, { faceletIndex: 47, face: 'B', x: 83.95, y: 51.41 },
+  { faceletIndex: 48, face: 'B', x: 73.03, y: 36.02 }, { faceletIndex: 49, face: 'B', x: 79.7, y: 38.85, label: 'B' }, { faceletIndex: 50, face: 'B', x: 85.89, y: 43.6 },
+  { faceletIndex: 51, face: 'B', x: 70.95, y: 28.89 }, { faceletIndex: 52, face: 'B', x: 78.67, y: 31.11 }, { faceletIndex: 53, face: 'B', x: 86.02, y: 35.2 },
 ]
 
-// Guide circles (3 groups × 3 radii).
+// Guide circles (3 groups × 3 radii). Spacing widened to 6.5 (23.2/29.7/36.2)
+// so stickers sit farther apart and can be drawn larger without overlap.
 const GUIDE_CIRCLES = [
-  { cx: 50, cy: 38.85, r: 24.3 }, { cx: 50, cy: 38.85, r: 29.7 }, { cx: 50, cy: 38.85, r: 35.1 },
-  { cx: 64.85, cy: 64.57, r: 24.3 }, { cx: 64.85, cy: 64.57, r: 29.7 }, { cx: 64.85, cy: 64.57, r: 35.1 },
-  { cx: 35.15, cy: 64.57, r: 24.3 }, { cx: 35.15, cy: 64.57, r: 29.7 }, { cx: 35.15, cy: 64.57, r: 35.1 },
+  { cx: 50, cy: 38.85, r: 23.2 }, { cx: 50, cy: 38.85, r: 29.7 }, { cx: 50, cy: 38.85, r: 36.2 },
+  { cx: 64.85, cy: 64.57, r: 23.2 }, { cx: 64.85, cy: 64.57, r: 29.7 }, { cx: 64.85, cy: 64.57, r: 36.2 },
+  { cx: 35.15, cy: 64.57, r: 23.2 }, { cx: 35.15, cy: 64.57, r: 29.7 }, { cx: 35.15, cy: 64.57, r: 36.2 },
 ]
 
 // Inner-circle sticker sets per face (the ring that spins on that face's move),
@@ -235,17 +244,36 @@ export function AnimatedGraphPanel() {
   // Responsive stage size.
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState(320)
+  const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
     const ro = new ResizeObserver(() => {
       const s = Math.min(el.clientWidth, el.clientHeight)
       if (s > 0) setSize(s)
+      setIsMobile(window.innerWidth < 1024) // lg breakpoint = stacked layout
     })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const scale = (size * FILL_FACTOR) / VIEW
+
+  // Responsive sizing: on mobile the whole mandala fills more of the panel
+  // (bigger overall) AND stickers are drawn a bit larger for easier tapping.
+  // A larger grab radius makes rings easy to grab on touch. (Adjacent dots are
+  // ~5.72 units apart, so keep the drawn radius under ~2.86 to avoid overlap.)
+  // Responsive sizing: on mobile the whole mandala fills more of the panel
+  // (bigger overall) AND stickers are drawn larger for easy touch dragging.
+  // With the widened ring spacing, dots are ~6.78 units apart, so keep the drawn
+  // radius under ~3.39 to avoid overlap. Grab radius (invisible tap target) is
+  // large so rings stay easy to grab.
+  const fillFactor = isMobile ? 1.0 : FILL_FACTOR
+  const nodeR = isMobile ? 3.2 : NODE_R
+  const grabR = isMobile ? 9 : 6
+  // Keep the current grab radius readable inside the (stable) pointer listener.
+  const grabRef = useRef(grabR)
+  grabRef.current = grabR
+
+  const scale = (size * fillFactor) / VIEW
   // Offset to center the scaled 100-unit content within the square stage.
   const offset = (size - VIEW * scale) / 2
 
@@ -270,7 +298,7 @@ export function AnimatedGraphPanel() {
       if (!pt) return
       // Find the nearest EDGE-MIDDLE sticker to the press (only those trigger).
       let id = -1
-      let bestD = 5 // grab radius around the sticker (viewBox units)
+      let bestD = grabRef.current // grab radius around the sticker (viewBox units)
       for (const key of Object.keys(EDGE_TRACK)) {
         const fi = Number(key)
         const p = posOf[fi]
@@ -450,7 +478,7 @@ export function AnimatedGraphPanel() {
               <Circle
                 x={n.x}
                 y={n.y}
-                radius={NODE_R}
+                radius={nodeR}
                 fill={FACE_COLOR[colors[n.faceletIndex]]}
                 stroke="rgba(0,0,0,0.4)"
                 strokeWidth={0.25}
@@ -475,7 +503,7 @@ export function AnimatedGraphPanel() {
             const y = d.py + Math.sin(ang) * d.r
             return (
               <Group key={`fly-${i}`}>
-                <Circle x={x} y={y} radius={NODE_R} fill={FACE_COLOR[d.color]} stroke="rgba(0,0,0,0.4)" strokeWidth={0.25} />
+                <Circle x={x} y={y} radius={nodeR} fill={FACE_COLOR[d.color]} stroke="rgba(0,0,0,0.4)" strokeWidth={0.25} />
                 <Text
                   x={x - 3}
                   y={y - 1.4}
